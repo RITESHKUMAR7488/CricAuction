@@ -40,16 +40,33 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', gap: 16 }}>
-        <div className="spinner" />
-        <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Connecting to database...</div>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', padding: 24, minHeight: '100vh', justifyContent: 'center' }}>
+        <div style={{ maxWidth: 400, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Header Skeleton */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
+            <div className="skeleton skeleton-avatar" style={{ width: 64, height: 64 }} />
+            <div style={{ flex: 1 }}>
+              <div className="skeleton skeleton-text" style={{ width: '60%', height: 18, marginBottom: 12 }} />
+              <div className="skeleton skeleton-text" style={{ width: '40%' }} />
+            </div>
+          </div>
+          
+          {/* Content Skeletons */}
+          <div className="skeleton skeleton-card" />
+          <div className="skeleton skeleton-card" style={{ height: 80 }} />
+          <div className="skeleton skeleton-card" />
+          
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, marginTop: 16, fontFamily: 'Rajdhani', letterSpacing: 1 }}>
+            INITIALIZING SYSTEM...
+          </div>
+        </div>
       </div>
     )
   }
 
   if (!dbReady) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24, flexDirection: 'column', gap: 16, textAlign: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flex: 1, width: '100%', padding: 24, flexDirection: 'column', gap: 16, textAlign: 'center' }}>
         <div style={{ fontSize: 56 }}>🏏</div>
         <div style={{ fontFamily: 'Rajdhani', fontSize: 28, fontWeight: 800, color: 'var(--gold)' }}>DATABASE SETUP REQUIRED</div>
         <div style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.6, maxWidth: 340 }}>

@@ -1033,6 +1033,40 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* ===================== SKELETON ===================== */
+.skeleton {
+  background: var(--bg-card);
+  background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%);
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes skeletonLoading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-text {
+  height: 12px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.skeleton-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-card {
+  height: 100px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 12px;
+  width: 100%;
+}
+
 /* ===================== EMPTY STATE ===================== */
 .empty-state {
   display: flex;
