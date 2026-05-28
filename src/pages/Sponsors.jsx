@@ -292,6 +292,15 @@ function AddSponsorModal({ onClose, onSaved }) {
   const logoRef = React.useRef()
   const contactRef = React.useRef()
 
+  // Revoke object URLs on change / unmount — prevents memory leaks
+  useEffect(() => {
+    return () => { if (logoPreview) URL.revokeObjectURL(logoPreview) }
+  }, [logoPreview])
+
+  useEffect(() => {
+    return () => { if (contactPhotoPreview) URL.revokeObjectURL(contactPhotoPreview) }
+  }, [contactPhotoPreview])
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name.trim()) return showToast('Sponsor name required', 'error')
@@ -416,6 +425,11 @@ function AddOwnerModal({ onClose, onSaved }) {
   const [photoPreview, setPhotoPreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const fileRef = React.useRef()
+
+  // Revoke object URL on change / unmount — prevents memory leak
+  useEffect(() => {
+    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview) }
+  }, [photoPreview])
 
   async function handleSubmit(e) {
     e.preventDefault()

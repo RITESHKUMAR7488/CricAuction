@@ -3,16 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, uploadFile } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
-
-const ROLES = ['Batter', 'Bowler', 'All Rounder', 'Wicket Keeper']
-const STYLES = ['RHB', 'LHB', 'RAM', 'LAM', 'RHB+RAM', 'LHB+LAM', 'RHB+LAM', 'LHB+RAM']
-
-const roleColors = {
-  'Batter': 'var(--blue)',
-  'Bowler': 'var(--purple)',
-  'All Rounder': 'var(--gold)',
-  'Wicket Keeper': 'var(--cyan)',
-}
+import { ROLES, STYLES, roleColors } from '../constants'
 
 export default function Players() {
   const { activeAuction, userRole } = useApp()
@@ -40,9 +31,9 @@ export default function Players() {
 
   async function handleDeletePlayer(player) {
     if (!window.confirm(`Are you sure you want to delete player ${player.name}?`)) return
-    
+
     const { error } = await supabase.from('players').delete().eq('id', player.id)
-    
+
     if (error) {
       showToast(error.message, 'error')
     } else {
@@ -52,7 +43,8 @@ export default function Players() {
   }
 
   const filtered = players.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+    const matchSearch =
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.code.toLowerCase().includes(search.toLowerCase())
     const matchRole = roleFilter === 'ALL' || p.role === roleFilter
     return matchSearch && matchRole
@@ -143,7 +135,11 @@ export default function Players() {
         <div className="empty-state">
           <div className="empty-state-icon">👤</div>
           <div className="empty-state-title">No Players Found</div>
-          <div className="empty-state-desc">Register players using the button above to get started.</div>
+          <div className="empty-state-desc">
+            {players.length === 0
+              ? 'Register players using the button above to get started.'
+              : 'No players match your current search or filter. Try adjusting them.'}
+          </div>
         </div>
       ) : (
         filtered.map(player => (
@@ -160,7 +156,7 @@ export default function Players() {
       {showModal && (
         <RegisterPlayerModal
           auctionId={activeAuction.id}
-          playerCount={players.length}
+          existingCodes={players.map(p => p.code)}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); loadPlayers() }}
         />
@@ -240,8 +236,8 @@ function PlayerCard({ player, roleColors, onClick, onDelete }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
         {onDelete && (
-          <button 
-            onClick={(e) => { e.stopPropagation(); onDelete(); }} 
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete() }}
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, fontSize: 16 }}
           >
             🗑️
@@ -253,15 +249,25 @@ function PlayerCard({ player, roleColors, onClick, onDelete }) {
   )
 }
 
-function RegisterPlayerModal({ auctionId, playerCount, onClose, onSaved }) {
+// ─── Register Player Modal ────────────────────────────────────────────────────
+// Takes existingCodes (not playerCount) so the code is derived from the actual
+// max code in the list — safe against deletions creating duplicates.
+function RegisterPlayerModal({ auctionId, existingCodes, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: '', role: 'Batter', age: '', style: 'RHB',
-    matches: '', strike_rate: '', economy: '', base_price: '1'
+    matches: '', strike_rate: '', economy: '', base_price: '1',
   })
   const [photo, setPhoto] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const fileRef = React.useRef()
+
+  // Revoke object URL when it changes or the modal unmounts — prevents memory leak
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview)
+    }
+  }, [photoPreview])
 
   function handlePhotoChange(e) {
     const file = e.target.files[0]
@@ -270,14 +276,23 @@ function RegisterPlayerModal({ auctionId, playerCount, onClose, onSaved }) {
     setPhotoPreview(URL.createObjectURL(file))
   }
 
+  // Generate next code based on the actual max in the existing list
+  // (not playerCount, which breaks when players are deleted)
   function nextCode() {
-    const n = playerCount + 1
-    return `P-${String(n).padStart(3, '0')}`
+    if (existingCodes.length === 0) return 'P-001'
+    const nums = existingCodes
+      .map(c => parseInt(c.replace('P-', ''), 10))
+      .filter(n => !isNaN(n))
+    const maxNum = nums.length > 0 ? Math.max(...nums) : 0
+    return `P-${String(maxNum + 1).padStart(3, '0')}`
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name.trim()) return showToast('Player name is required', 'error')
+    const basePrice = parseFloat(form.base_price)
+    if (!basePrice || basePrice <= 0) return showToast('Base price must be greater than 0', 'error')
+
     setLoading(true)
     try {
       let photo_url = null
@@ -292,14 +307,14 @@ function RegisterPlayerModal({ auctionId, playerCount, onClose, onSaved }) {
         matches: form.matches ? parseInt(form.matches) : 0,
         strike_rate: form.strike_rate ? parseFloat(form.strike_rate) : null,
         economy: form.economy ? parseFloat(form.economy) : null,
-        base_price: parseFloat(form.base_price) || 1,
+        base_price: basePrice,
         photo_url,
-        status: 'available'
+        status: 'available',
       })
       if (error) throw error
       showToast('Player registered successfully!', 'success')
       onSaved()
-    } catch(err) {
+    } catch (err) {
       showToast('Error: ' + err.message, 'error')
     } finally {
       setLoading(false)
@@ -416,6 +431,7 @@ function RegisterPlayerModal({ auctionId, playerCount, onClose, onSaved }) {
                 className="form-input"
                 type="number"
                 step="0.25"
+                min="0.25"
                 value={form.base_price}
                 onChange={e => setForm(f => ({ ...f, base_price: e.target.value }))}
                 placeholder="1.00"

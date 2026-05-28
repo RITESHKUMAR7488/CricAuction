@@ -2,13 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
-
-const roleColors = {
-  'Batter': 'var(--blue)',
-  'Bowler': 'var(--purple)',
-  'All Rounder': 'var(--gold)',
-  'Wicket Keeper': 'var(--cyan)',
-}
+import { roleColors } from '../constants'
 
 export default function Rankings() {
   const { activeAuction } = useApp()

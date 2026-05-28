@@ -66,21 +66,27 @@ export default function Auction() {
   }
 
   async function handleUnsold(playerId) {
-    await supabase.from('players').update({ status: 'unsold' }).eq('id', playerId)
-    showToast('Player marked unsold', 'info')
-    setShowBidding(false)
-    setSelectedPlayer(null)
-    loadData()
+    try {
+      const { error } = await supabase.from('players').update({ status: 'unsold' }).eq('id', playerId)
+      if (error) throw error
+      showToast('Player marked unsold', 'info')
+      setShowBidding(false)
+      setSelectedPlayer(null)
+      loadData()
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error')
+    }
   }
 
-  const [exporting, setExporting] = useState(false)
+  const [exportingPDF, setExportingPDF] = useState(false)
+  const [exportingCSV, setExportingCSV] = useState(false)
 
   async function handleExportPDF() {
     if (!activeAuction) return
-    setExporting(true)
+    setExportingPDF(true)
     try { await exportAuctionPDF(activeAuction.id, leagueName) }
     catch(e) { showToast('Export error: ' + e.message, 'error') }
-    finally { setExporting(false) }
+    finally { setExportingPDF(false) }
   }
 
   if (!activeAuction) {
@@ -181,25 +187,25 @@ export default function Auction() {
             <button
               className="btn btn-ghost btn-sm"
               onClick={handleExportPDF}
-              disabled={exporting}
+              disabled={exportingPDF}
               id="auction-download-pdf-btn"
               style={{ flex: 1, justifyContent: 'center' }}
             >
-              {exporting ? '⏳ Generating...' : '📄 PDF Report'}
+              {exportingPDF ? '⏳ Generating...' : '📄 PDF Report'}
             </button>
             <button
               className="btn btn-ghost btn-sm"
               onClick={async () => {
-                setExporting(true)
+                setExportingCSV(true)
                 try { await exportAuctionCSV(activeAuction.id, leagueName) }
                 catch(e) { showToast('Error: ' + e.message, 'error') }
-                finally { setExporting(false) }
+                finally { setExportingCSV(false) }
               }}
-              disabled={exporting}
+              disabled={exportingCSV}
               id="auction-download-csv-btn"
               style={{ flex: 1, justifyContent: 'center' }}
             >
-              {exporting ? '⏳' : '📊 CSV Files'}
+              {exportingCSV ? '⏳' : '📊 CSV Files'}
             </button>
           </div>
         </div>
@@ -336,6 +342,13 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled }) {
   useEffect(() => {
     drawWheel(angleRef.current)
   }, [drawWheel])
+
+  // Cancel any in-progress animation when the wheel unmounts to prevent RAF leak
+  useEffect(() => {
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+    }
+  }, [])
 
   function spin() {
     if (spinning || wheelPlayers.length === 0 || disabled) return

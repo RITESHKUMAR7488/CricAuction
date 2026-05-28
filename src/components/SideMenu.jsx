@@ -2,9 +2,10 @@ import React, { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { exportAuctionPDF, exportAuctionCSV } from '../lib/exportUtils'
+import { showToast } from './Toast'
 
 export default function SideMenu({ onClose }) {
-  const { leagueName, updateLeagueName, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole } = useApp()
+  const { leagueName, updateLeagueName, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole, clearActiveAuction } = useApp()
   const [view, setView] = useState('main') // main | rename | newauction | switchauction
   const [nameInput, setNameInput] = useState(leagueName)
   const [auctionName, setAuctionName] = useState('')
@@ -25,7 +26,7 @@ export default function SideMenu({ onClose }) {
       setView('main')
       onClose()
     } catch(e) {
-      alert('Error: ' + e.message)
+      showToast('Error: ' + e.message, 'error')
     } finally {
       setLoading(false)
     }
@@ -44,11 +45,17 @@ export default function SideMenu({ onClose }) {
     if (!activeAuction) return
     if (!window.confirm(`DELETE auction "${activeAuction.name}"? This will permanently delete all players and teams in this auction.`)) return
     setLoading(true)
-    await supabase.from('auctions').delete().eq('id', activeAuction.id)
+    const { error } = await supabase.from('auctions').delete().eq('id', activeAuction.id)
+    if (error) {
+      showToast('Error deleting auction: ' + error.message, 'error')
+      setLoading(false)
+      return
+    }
+    clearActiveAuction()   // clears state + localStorage for this user
     await loadAuctions()
     setLoading(false)
     onClose()
-    window.location.reload()
+    showToast('Auction deleted', 'info')
   }
 
   return (
@@ -92,7 +99,7 @@ export default function SideMenu({ onClose }) {
               if (!activeAuction || loading) return
               setLoading(true)
               try { await exportAuctionPDF(activeAuction.id, leagueName) }
-              catch(e) { alert('Export error: ' + e.message) }
+              catch(e) { showToast('Export error: ' + e.message, 'error') }
               finally { setLoading(false) }
             }}
             id="menu-download-pdf"
@@ -107,7 +114,7 @@ export default function SideMenu({ onClose }) {
               if (!activeAuction || loading) return
               setLoading(true)
               try { await exportAuctionCSV(activeAuction.id, leagueName) }
-              catch(e) { alert('Export error: ' + e.message) }
+              catch(e) { showToast('Export error: ' + e.message, 'error') }
               finally { setLoading(false) }
             }}
             id="menu-download-csv"

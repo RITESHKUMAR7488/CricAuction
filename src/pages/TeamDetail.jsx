@@ -3,13 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
-
-const roleColors = {
-  'Batter': 'var(--blue)',
-  'Bowler': 'var(--purple)',
-  'All Rounder': 'var(--gold)',
-  'Wicket Keeper': 'var(--cyan)',
-}
+import { roleColors } from '../constants'
 
 export default function TeamDetail() {
   const { id } = useParams()

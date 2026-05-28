@@ -21,8 +21,10 @@ export default function Teams() {
   const [viewMode, setViewMode] = useState('grid')
 
   useEffect(() => {
-    if (activeAuction) loadTeams()
-    loadOwners()
+    if (activeAuction) {
+      loadTeams()
+      loadOwners()
+    }
   }, [activeAuction])
 
   async function loadTeams() {
@@ -279,6 +281,11 @@ function AddTeamModal({ auctionId, owners, onClose, onSaved }) {
   const [logoPreview, setLogoPreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const fileRef = React.useRef()
+
+  // Revoke object URL on change / unmount to prevent memory leak
+  useEffect(() => {
+    return () => { if (logoPreview) URL.revokeObjectURL(logoPreview) }
+  }, [logoPreview])
 
   function handleLogoChange(e) {
     const file = e.target.files[0]
