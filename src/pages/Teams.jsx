@@ -21,10 +21,25 @@ export default function Teams() {
   const [viewMode, setViewMode] = useState('grid')
 
   useEffect(() => {
-    if (activeAuction) {
-      loadTeams()
-      loadOwners()
-    }
+    if (!activeAuction) return
+
+    loadTeams()
+    loadOwners()
+
+    // Real-time: purse bars and player counts update live during the auction
+    const channel = supabase
+      .channel(`teams-live-${activeAuction.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'players',
+        filter: `auction_id=eq.${activeAuction.id}`,
+      }, () => loadTeams())
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'teams',
+        filter: `auction_id=eq.${activeAuction.id}`,
+      }, () => loadTeams())
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
   }, [activeAuction])
 
   async function loadTeams() {

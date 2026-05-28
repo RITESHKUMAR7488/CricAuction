@@ -13,7 +13,24 @@ export default function TeamDetail() {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadTeam() }, [id])
+  useEffect(() => {
+    loadTeam()
+
+    // Real-time: squad list and purse bar update as players are sold to this team
+    const channel = supabase
+      .channel(`team-detail-live-${id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'players',
+        filter: `team_id=eq.${id}`,
+      }, () => loadTeam())
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'teams',
+        filter: `id=eq.${id}`,
+      }, () => loadTeam())
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [id])
 
   async function loadTeam() {
     const { data: teamData } = await supabase

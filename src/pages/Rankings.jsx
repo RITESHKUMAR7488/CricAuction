@@ -12,7 +12,20 @@ export default function Rankings() {
   const [tab, setTab] = useState('sold')
 
   useEffect(() => {
-    if (activeAuction) loadRankings()
+    if (!activeAuction) return
+
+    loadRankings()
+
+    // Real-time: leaderboard updates the instant a player is sold
+    const channel = supabase
+      .channel(`rankings-live-${activeAuction.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'players',
+        filter: `auction_id=eq.${activeAuction.id}`,
+      }, () => loadRankings())
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
   }, [activeAuction])
 
   async function loadRankings() {

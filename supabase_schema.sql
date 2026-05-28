@@ -212,3 +212,14 @@ begin
   return v_auction_id;
 end;
 $body$;
+
+-- ── Enable Realtime for live auction updates ─────────────────────────────────
+-- Run these statements ONCE in your Supabase SQL editor.
+-- Without REPLICA IDENTITY FULL, UPDATE events cannot be filtered by non-PK columns
+-- (e.g. auction_id), so row-level realtime filtering won't fire correctly.
+alter table players replica identity full;
+alter table teams replica identity full;
+
+-- Add the tables to the supabase_realtime publication so clients receive events
+alter publication supabase_realtime add table players;
+alter publication supabase_realtime add table teams;

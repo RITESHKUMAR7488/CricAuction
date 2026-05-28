@@ -15,10 +15,30 @@ export default function Auction() {
   const [showBidding, setShowBidding] = useState(false)
   const [spinning, setSpinning] = useState(false)
 
+  const [isLive, setIsLive] = useState(false)
+
   useEffect(() => {
-    if (activeAuction) {
-      loadData()
-    }
+    if (!activeAuction) return
+
+    loadData()
+
+    // Subscribe to real-time changes — members see sold status & purse
+    // updates the instant the host marks a player SOLD, no page refresh needed.
+    const channel = supabase
+      .channel(`auction-live-${activeAuction.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'players',
+        filter: `auction_id=eq.${activeAuction.id}`,
+      }, () => loadData())
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'teams',
+        filter: `auction_id=eq.${activeAuction.id}`,
+      }, () => loadData())
+      .subscribe((status) => {
+        setIsLive(status === 'SUBSCRIBED')
+      })
+
+    return () => supabase.removeChannel(channel)
   }, [activeAuction])
 
   async function loadData() {
@@ -111,8 +131,25 @@ export default function Auction() {
           {/* Teams Purse Overview */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1 }}>
-                TEAMS & PURSE OVERVIEW
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  TEAMS &amp; PURSE OVERVIEW
+                </div>
+                {isLive && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: 'rgba(39,174,96,0.12)', border: '1px solid rgba(39,174,96,0.3)',
+                    borderRadius: 8, padding: '2px 7px',
+                  }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: 'var(--green)',
+                      display: 'inline-block',
+                      animation: 'pulse 1.5s infinite',
+                    }} />
+                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--green)', letterSpacing: 1 }}>LIVE</span>
+                  </div>
+                )}
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => navigate('/teams')} style={{ fontSize: 10 }}>VIEW ALL →</button>
             </div>
