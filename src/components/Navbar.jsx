@@ -17,7 +17,9 @@ export default function Navbar() {
     <nav className="bottom-nav">
       {/* Sidebar logo — only visible on desktop */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🏆</div>
+        <div className="sidebar-logo-icon" style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/cricauction-logo.jpeg" alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+        </div>
         <div className="sidebar-logo-name">{leagueName || 'ELITE LEAGUE'}</div>
       </div>
 

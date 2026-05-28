@@ -188,6 +188,10 @@ export default function SideMenu({ onClose }) {
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setView('main')}>Back</button>
           </div>
         )}
+
+        <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
+          <img src="/cricauction-logo.jpeg" alt="Powered by BRICX" style={{ width: 100, borderRadius: 12, marginBottom: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} />
+        </div>
       </div>
     </div>
   )

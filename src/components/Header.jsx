@@ -8,7 +8,9 @@ export default function Header({ onMenuToggle }) {
   return (
     <header className="header">
       <div className="header-logo">
-        <div className="header-logo-icon">🏆</div>
+        <div className="header-logo-icon" style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/cricauction-logo.jpeg" alt="Logo" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />
+        </div>
         <div className="header-logo-text">
           <span className="elite">{leagueName.split(' ')[0] || 'ELITE'}</span>
           <span className="league">{leagueName.split(' ').slice(1).join(' ') || 'LEAGUE'}</span>

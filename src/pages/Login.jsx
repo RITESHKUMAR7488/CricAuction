@@ -51,7 +51,9 @@ export default function Login() {
         background: 'var(--bg-card)', padding: 40, borderRadius: 16, border: '1px solid var(--border)',
         width: '100%', maxWidth: 400, textAlign: 'center'
       }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🏏</div>
+        <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'center' }}>
+          <img src="/cricauction-logo.jpeg" alt="CricAuction Powered by BRICX" style={{ width: 180, height: 'auto', borderRadius: '16px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }} />
+        </div>
         <h1 style={{ fontFamily: 'Rajdhani', fontSize: 32, marginBottom: 8, color: 'var(--text-main)' }}>
           ELITE LEAGUE
         </h1>
