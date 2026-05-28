@@ -45,7 +45,7 @@ export default function Login() {
   return (
     <div className="login-container" style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
-      minHeight: '100vh', padding: 24, background: 'var(--bg-main)'
+      minHeight: '100vh', flex: 1, width: '100%', padding: 24, background: 'var(--bg-main)'
     }}>
       <div style={{
         background: 'var(--bg-card)', padding: 40, borderRadius: 16, border: '1px solid var(--border)',
