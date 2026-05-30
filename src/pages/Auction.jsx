@@ -17,6 +17,8 @@ export default function Auction() {
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [bidHistory, setBidHistory] = useState([])
   const [liveSyncChannel, setLiveSyncChannel] = useState(null)
+  const [spinning, setSpinning] = useState(false)
+  const [isLive, setIsLive] = useState(false)
 
   useEffect(() => {
     if (!activeAuction) return
