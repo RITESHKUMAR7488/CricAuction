@@ -55,7 +55,7 @@ const navItems = [
 ]
 
 export default function Navbar() {
-  const { leagueName } = useApp()
+  const { leagueName, activeAuction } = useApp()
   const [sponsors, setSponsors] = useState([])
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export default function Navbar() {
           <div className="sidebar-logo-icon" style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
             <img src="/cricauction-logo.jpeg" alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
           </div>
-          <div className="sidebar-logo-name">{leagueName || 'ELITE LEAGUE'}</div>
+          <div className="sidebar-logo-name" style={{ fontSize: 13 }}>{activeAuction ? activeAuction.name : (leagueName || 'ELITE LEAGUE')}</div>
         </div>
 
         {navItems.map(({ to, label, Icon, exact }) => (
