@@ -628,9 +628,9 @@ function BiddingModal({
       WebkitBackdropFilter: 'blur(32px)',
       display: 'flex', 
       flexDirection: 'column',
-      justifyContent: 'flex-start',
       overflowY: 'auto'
     }}>
+      <div style={{ margin: 'auto 0', width: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Top right close button (acts as cancel) */}
       <button 
         onClick={onClose} 

@@ -110,7 +110,14 @@ export default function Rankings() {
         <>
           {/* Top 3 Podium */}
           {tab === 'sold' && top3.length > 0 && (
-            <div className="rankings-podium" style={{ marginBottom: 24, marginTop: 8 }}>
+            <div className="rankings-podium" style={{ 
+              display: 'flex', 
+              alignItems: 'flex-end', 
+              justifyContent: 'center', 
+              gap: 16,
+              paddingTop: 32,
+              marginBottom: 32 
+            }}>
               {/* 2nd place */}
               {top3[1] && (
                 <PodiumCard player={top3[1]} rank={2} onClick={() => navigate(`/players/${top3[1].id}`)} />
@@ -220,11 +227,17 @@ function PodiumCard({ player, rank, onClick }) {
     <div
       className="podium-card"
       style={{
+        flex: 1,
+        maxWidth: 200,
+        width: '30%',
         background: c.bg,
         border: `1px solid ${c.border}`,
         boxShadow: c.glow,
-        marginBottom: isFirst ? 0 : 28,
+        transform: isFirst ? 'translateY(-24px)' : 'none',
         paddingTop: 20,
+        borderRadius: 16,
+        position: 'relative',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 16
       }}
       onClick={onClick}
     >
@@ -239,12 +252,12 @@ function PodiumCard({ player, rank, onClick }) {
           src={player.photo_url}
           alt={player.name}
           className="podium-photo"
-          style={{ border: `2px solid ${c.border}` }}
+          style={{ width: photoSize, height: photoSize, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${c.border}`, marginBottom: 12 }}
         />
       ) : (
         <div
           className="podium-photo-placeholder"
-          style={{ fontSize: isFirst ? 36 : 28 }}
+          style={{ width: photoSize, height: photoSize, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', border: `3px solid ${c.border}`, marginBottom: 12, fontSize: isFirst ? 36 : 28 }}
         >
           👤
         </div>
