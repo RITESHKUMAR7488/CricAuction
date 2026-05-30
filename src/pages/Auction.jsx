@@ -628,18 +628,19 @@ function BiddingModal({
       WebkitBackdropFilter: 'blur(32px)',
       display: 'flex', 
       flexDirection: 'column',
-      justifyContent: 'space-between'
+      justifyContent: 'flex-start',
+      overflowY: 'auto'
     }}>
       {/* Top right close button (acts as cancel) */}
       <button 
         onClick={onClose} 
         style={{ 
-          position: 'absolute', top: 20, right: 20, 
-          width: 44, height: 44, 
+          position: 'absolute', top: 16, right: 16, 
+          width: 36, height: 36, 
           background: 'rgba(255,255,255,0.08)', 
           border: '1px solid rgba(255,255,255,0.1)', 
           borderRadius: '50%', 
-          color: '#fff', fontSize: 22, 
+          color: '#fff', fontSize: 18, 
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', zIndex: 100, transition: 'all 0.2s'
         }}
@@ -649,37 +650,36 @@ function BiddingModal({
 
       {/* Top half: Player Photo & Details */}
       <div style={{
-        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '40px 20px 20px',
+        padding: '24px 20px 16px',
         background: `radial-gradient(circle at top, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`
       }}>
         {player.photo_url ? (
-          <img src={player.photo_url} alt={player.name} style={{ width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`, boxShadow: '0 12px 32px rgba(0,0,0,0.5)', marginBottom: 24 }} />
+          <img src={player.photo_url} alt={player.name} style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${roleColors[player.role] || 'var(--blue)'}55`, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', marginBottom: 16 }} />
         ) : (
-          <div style={{ width: 160, height: 160, borderRadius: '50%', background: 'var(--bg-secondary)', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64, marginBottom: 24, boxShadow: '0 12px 32px rgba(0,0,0,0.5)' }}>👤</div>
+          <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'var(--bg-secondary)', border: `3px solid ${roleColors[player.role] || 'var(--blue)'}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>👤</div>
         )}
-        <div style={{ fontSize: 14, color: 'var(--blue)', fontWeight: 800, letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>{player.code}</div>
-        <div style={{ fontFamily: 'Rajdhani', fontSize: 42, fontWeight: 900, lineHeight: 1.1, textAlign: 'center', textTransform: 'uppercase', marginBottom: 8 }}>{player.name}</div>
-        <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 16, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>{player.role}</div>
+        <div style={{ fontSize: 12, color: 'var(--blue)', fontWeight: 800, letterSpacing: 2, marginBottom: 4, textTransform: 'uppercase' }}>{player.code}</div>
+        <div style={{ fontFamily: 'Rajdhani', fontSize: 32, fontWeight: 900, lineHeight: 1.1, textAlign: 'center', textTransform: 'uppercase', marginBottom: 4 }}>{player.name}</div>
+        <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 14, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>{player.role}</div>
       </div>
 
       {/* Middle: Current Bid */}
-      <div style={{ padding: '0 24px', textAlign: 'center', marginBottom: 32 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>Current Bid</div>
-        <div style={{ fontSize: 64, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', lineHeight: 1, filter: 'drop-shadow(0 4px 16px rgba(245,166,35,0.4))' }}>
+      <div style={{ padding: '0 24px', textAlign: 'center', marginBottom: 20 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>Current Bid</div>
+        <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', lineHeight: 1, filter: 'drop-shadow(0 4px 16px rgba(245,166,35,0.4))' }}>
           ₹ {currentBid} L
         </div>
         {selectedTeam && (
-          <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 10,
+          <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8,
             background: `${selectedTeam.color}22`, border: `1px solid ${selectedTeam.color}66`,
-            borderRadius: 12, padding: '8px 20px'
+            borderRadius: 12, padding: '6px 16px'
           }}>
-            <div style={{ width: 12, height: 12, borderRadius: '50%', background: selectedTeam.color, boxShadow: `0 0 12px ${selectedTeam.color}` }} />
-            <span style={{ fontWeight: 800, fontSize: 16, color: selectedTeam.color, letterSpacing: 0.5 }}>{selectedTeam.name.toUpperCase()}</span>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: selectedTeam.color, boxShadow: `0 0 10px ${selectedTeam.color}` }} />
+            <span style={{ fontWeight: 800, fontSize: 14, color: selectedTeam.color, letterSpacing: 0.5 }}>{selectedTeam.name.toUpperCase()}</span>
           </div>
         )}
       </div>
