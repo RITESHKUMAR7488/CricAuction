@@ -804,6 +804,7 @@ function BiddingModal({
           </button>
         </div>
       </div>
+      </div>
     </div>
   )
 }
