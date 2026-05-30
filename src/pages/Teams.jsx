@@ -20,6 +20,7 @@ export default function Teams() {
   const [editingTeam, setEditingTeam] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
   const [ownerFilter, setOwnerFilter] = useState('all')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!activeAuction) return

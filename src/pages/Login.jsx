@@ -21,13 +21,20 @@ export default function Login() {
     try {
       if (isSignUp) {
         // Sign Up
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         })
         if (error) throw error
-        showToast('Account created successfully!', 'success')
-        navigate('/dashboard')
+        
+        // Check if email confirmation is required by Supabase settings
+        if (data.session === null && data.user?.identities?.length > 0) {
+          showToast('Account created! Please check your email to confirm.', 'info')
+          setIsSignUp(false) // switch to login view
+        } else {
+          showToast('Account created successfully!', 'success')
+          navigate('/dashboard')
+        }
       } else {
         // Sign In
         const { error } = await supabase.auth.signInWithPassword({
