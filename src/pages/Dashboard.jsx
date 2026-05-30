@@ -76,7 +76,7 @@ export default function Dashboard() {
                 onChange={e => setNewAuctionName(e.target.value)}
                 required
                 className="input-field"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'white' }}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
               />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 1 }}>
@@ -108,7 +108,7 @@ export default function Dashboard() {
                 onChange={e => setJoinCode(e.target.value)}
                 required
                 className="input-field"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'white', textTransform: 'uppercase' }}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white', textTransform: 'uppercase' }}
               />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 1 }}>

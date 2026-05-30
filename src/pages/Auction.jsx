@@ -13,33 +13,63 @@ export default function Auction() {
   const [loading, setLoading] = useState(true)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [showBidding, setShowBidding] = useState(false)
-  const [spinning, setSpinning] = useState(false)
-
-  const [isLive, setIsLive] = useState(false)
+  const [currentBid, setCurrentBid] = useState(0)
+  const [selectedTeam, setSelectedTeam] = useState(null)
+  const [bidHistory, setBidHistory] = useState([])
+  const [liveSyncChannel, setLiveSyncChannel] = useState(null)
 
   useEffect(() => {
     if (!activeAuction) return
 
     loadData()
 
-    // Subscribe to real-time changes — members see sold status & purse
-    // updates the instant the host marks a player SOLD, no page refresh needed.
-    const channel = supabase
-      .channel(`auction-live-${activeAuction.id}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'players',
-        filter: `auction_id=eq.${activeAuction.id}`,
-      }, () => loadData())
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'teams',
-        filter: `auction_id=eq.${activeAuction.id}`,
-      }, () => loadData())
-      .subscribe((status) => {
-        setIsLive(status === 'SUBSCRIBED')
-      })
+    const channel = supabase.channel(`auction-live-${activeAuction.id}`)
+      
+    channel.on('postgres_changes', {
+      event: '*', schema: 'public', table: 'players',
+      filter: `auction_id=eq.${activeAuction.id}`,
+    }, () => loadData())
+    
+    channel.on('postgres_changes', {
+      event: '*', schema: 'public', table: 'teams',
+      filter: `auction_id=eq.${activeAuction.id}`,
+    }, () => loadData())
 
-    return () => supabase.removeChannel(channel)
-  }, [activeAuction])
+    // Audience listeners
+    channel.on('broadcast', { event: 'spin_start' }, (payload) => {
+      if (userRole !== 'host') setSpinning(true)
+    })
+
+    channel.on('broadcast', { event: 'spin_result' }, (payload) => {
+      if (userRole !== 'host') {
+        setSpinning(false)
+        if (payload.payload?.playerId) {
+          // Find player in data
+        }
+      }
+    })
+
+    channel.on('broadcast', { event: 'bidding_update' }, (payload) => {
+      if (userRole !== 'host') {
+        const { playerId, currentBid: cb, selectedTeamId, bidHistory: bh } = payload.payload
+        setCurrentBid(cb)
+        setBidHistory(bh || [])
+        // We need to set selectedTeam object later when teams are loaded.
+        // We will just use an effect below to sync it.
+      }
+    })
+
+    channel.subscribe((status) => {
+      setIsLive(status === 'SUBSCRIBED')
+    })
+    
+    setLiveSyncChannel(channel)
+
+    return () => {
+      supabase.removeChannel(channel)
+      setLiveSyncChannel(null)
+    }
+  }, [activeAuction, userRole])
 
   async function loadData() {
     setLoading(true)
@@ -54,6 +84,7 @@ export default function Auction() {
 
   const availablePlayers = players.filter(p => p.status === 'available')
   const soldPlayers = players.filter(p => p.status === 'sold')
+  const unsoldPlayers = players.filter(p => p.status === 'unsold')
   const totalSpent = teams.reduce((s, t) => {
     const tSpent = (t.players || []).filter(p => p.status === 'sold').reduce((ss, p) => ss + (p.sold_price || 0), 0)
     return s + tSpent
@@ -67,9 +98,58 @@ export default function Auction() {
     const player = players.find(p => p.code === playerCode)
     if (player) {
       setSelectedPlayer(player)
+      setCurrentBid(player.base_price)
+      setSelectedTeam(null)
+      setBidHistory([{ amount: player.base_price, label: 'Base Price' }])
       setShowBidding(true)
+
+      if (liveSyncChannel && userRole === 'host') {
+        liveSyncChannel.send({
+          type: 'broadcast', event: 'bidding_update',
+          payload: {
+            playerId: player.id,
+            currentBid: player.base_price,
+            selectedTeamId: null,
+            bidHistory: [{ amount: player.base_price, label: 'Base Price' }]
+          }
+        })
+      }
     }
   }
+
+  // Effect to broadcast state changes when host updates bidding
+  useEffect(() => {
+    if (liveSyncChannel && userRole === 'host' && showBidding && selectedPlayer) {
+      liveSyncChannel.send({
+        type: 'broadcast', event: 'bidding_update',
+        payload: {
+          playerId: selectedPlayer.id,
+          currentBid,
+          selectedTeamId: selectedTeam?.id,
+          bidHistory
+        }
+      })
+    }
+  }, [currentBid, selectedTeam, bidHistory, showBidding, selectedPlayer, liveSyncChannel, userRole])
+
+  // Effect to sync audience selectedTeam from ID (since broadcast gives ID)
+  useEffect(() => {
+    if (userRole !== 'host' && showBidding) {
+      // Find the player and team from the last broadcast
+      if (bidHistory.length > 0) {
+        const lastBid = bidHistory[bidHistory.length - 1]
+        if (lastBid.teamId) {
+          const t = teams.find(team => team.id === lastBid.teamId)
+          if (t) setSelectedTeam(t)
+        } else {
+          setSelectedTeam(null)
+        }
+      }
+    }
+  }, [bidHistory, teams, userRole, showBidding])
+
+  // Effect to catch audience up if they join late (handled by postgres_changes partially, but for bidding we rely on broadcasts)
+  // To keep it simple, audience will see the modal when the next bid happens or when wheel spins.
 
   async function handleSold(playerId, teamId, soldPrice) {
     try {
@@ -92,6 +172,18 @@ export default function Auction() {
       showToast('Player marked unsold', 'info')
       setShowBidding(false)
       setSelectedPlayer(null)
+      loadData()
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error')
+    }
+  }
+
+  async function handleRehostUnsold() {
+    if (!window.confirm('Are you sure you want to re-host all unsold players?')) return
+    try {
+      const { error } = await supabase.from('players').update({ status: 'available' }).eq('auction_id', activeAuction.id).eq('status', 'unsold')
+      if (error) throw error
+      showToast('Unsold players are back in the auction! 🔄', 'success')
       loadData()
     } catch (e) {
       showToast('Error: ' + e.message, 'error')
@@ -124,6 +216,11 @@ export default function Auction() {
 
   return (
     <div className="page-content">
+      {/* Header */}
+      <div className="page-header" style={{ marginBottom: 20 }}>
+        <h1 className="page-title">AUCTION</h1>
+      </div>
+
       {/* Desktop two-column wrapper */}
       <div className="auction-desktop-grid">
         {/* LEFT COLUMN — teams overview + stats */}
@@ -132,26 +229,13 @@ export default function Auction() {
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: 1 }}>
                   TEAMS &amp; PURSE OVERVIEW
                 </div>
-                {isLive && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    background: 'rgba(39,174,96,0.12)', border: '1px solid rgba(39,174,96,0.3)',
-                    borderRadius: 8, padding: '2px 7px',
-                  }}>
-                    <span style={{
-                      width: 6, height: 6, borderRadius: '50%',
-                      background: 'var(--green)',
-                      display: 'inline-block',
-                      animation: 'pulse 1.5s infinite',
-                    }} />
-                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--green)', letterSpacing: 1 }}>LIVE</span>
-                  </div>
-                )}
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/teams')} style={{ fontSize: 10 }}>VIEW ALL →</button>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {soldPlayers.length} PLAYERS SOLD
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none' }}>
               {loading ? (
@@ -168,95 +252,69 @@ export default function Auction() {
                       key={team.id}
                       onClick={() => navigate(`/teams/${team.id}`)}
                       style={{
-                        background: `${team.color}15`,
-                        border: `1px solid ${team.color}44`,
+                        position: 'relative',
+                        background: `${team.color}22`,
+                        border: `1px solid ${team.color}55`,
                         borderRadius: 12,
-                        padding: '12px 14px',
-                        minWidth: 110,
+                        padding: '16px 12px 14px',
+                        minWidth: 105,
                         flexShrink: 0,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        overflow: 'hidden'
                       }}
                     >
                       {team.logo_url ? (
-                        <img src={team.logo_url} alt={team.name} style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', marginBottom: 6, display: 'block' }} />
+                        <img src={team.logo_url} alt={team.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', marginBottom: 8 }} />
                       ) : (
-                        <div style={{ width: 36, height: 36, borderRadius: 8, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 6 }}>🛡️</div>
+                        <div style={{ width: 44, height: 44, borderRadius: 8, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 8 }}>🛡️</div>
                       )}
-                      <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'Rajdhani', letterSpacing: 0.5, marginBottom: 2 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', fontFamily: 'Rajdhani', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' }}>
                         {team.name.toUpperCase()}
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 6 }}>
-                        {playerCount}/{team.max_players} players
+                      
+                      <div style={{ fontSize: 14, fontWeight: 700, color: playerCount >= team.max_players ? 'var(--green)' : '#fff', lineHeight: 1.1 }}>
+                        {playerCount}/{team.max_players}
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)' }}>
-                        ₹{purseLeft.toFixed(1)}L
+                      <div style={{ fontSize: 9, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+                        PLAYERS
                       </div>
-                      <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Purse Left</div>
+
+                      <div style={{ fontSize: 14, fontWeight: 700, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', lineHeight: 1.1 }}>
+                        ₹ {purseLeft.toFixed(2)} L
+                      </div>
+                      <div style={{ fontSize: 9, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        PURSE LEFT
+                      </div>
+
+                      {/* Progress Line */}
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, height: 4, background: `${team.color}33`, width: '100%' }} />
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, height: 4, background: team.color, width: `${team.total_purse > 0 ? (spent / team.total_purse) * 100 : 0}%`, transition: 'width 0.3s ease' }} />
                     </div>
                   )
                 })
               )}
             </div>
           </div>
-
-          {/* Stats bar */}
-          <div className="stats-row" style={{ marginBottom: 16 }}>
-            <div className="stat-item">
-              <span className="stat-icon" style={{ color: 'var(--green)' }}>🔨</span>
-              <div className="stat-value">{soldPlayers.length}</div>
-              <div className="stat-label">Players Sold</div>
-            </div>
-            <div className="stat-item">
-              <span className="stat-icon" style={{ color: 'var(--gold)' }}>💰</span>
-              <div className="stat-value">₹{totalSpent.toFixed(1)}L</div>
-              <div className="stat-label">Total Spent</div>
-            </div>
-            <div className="stat-item">
-              <span className="stat-icon" style={{ color: 'var(--blue)' }}>🎯</span>
-              <div className="stat-value">{soldPlayers.length}/{players.length}</div>
-              <div className="stat-label">Total Players</div>
-            </div>
-          </div>
-
-          {/* Download quick access */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={handleExportPDF}
-              disabled={exportingPDF}
-              id="auction-download-pdf-btn"
-              style={{ flex: 1, justifyContent: 'center' }}
-            >
-              {exportingPDF ? '⏳ Generating...' : '📄 PDF Report'}
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={async () => {
-                setExportingCSV(true)
-                try { await exportAuctionCSV(activeAuction.id, leagueName) }
-                catch(e) { showToast('Error: ' + e.message, 'error') }
-                finally { setExportingCSV(false) }
-              }}
-              disabled={exportingCSV}
-              id="auction-download-csv-btn"
-              style={{ flex: 1, justifyContent: 'center' }}
-            >
-              {exportingCSV ? '⏳' : '📊 CSV Files'}
-            </button>
-          </div>
         </div>
 
         {/* RIGHT COLUMN — Spin Wheel */}
         <div>
           {availablePlayers.length > 0 ? (
-            <SpinWheel
-              players={availablePlayers}
-              spinning={spinning}
-              setSpinning={setSpinning}
-              onResult={handleSpinResult}
-              disabled={userRole !== 'host'}
-            />
+      <div className="auction-wheel-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <SpinWheel
+          players={availablePlayers}
+          spinning={spinning}
+          setSpinning={setSpinning}
+          onResult={handleSpinResult}
+          disabled={userRole !== 'host'}
+          liveSyncChannel={liveSyncChannel}
+          userRole={userRole}
+        />
+      </div>
           ) : (
             <div className="empty-state" style={{ minHeight: 300 }}>
               <div style={{ fontSize: 64 }}>🎉</div>
@@ -266,6 +324,15 @@ export default function Auction() {
                   ? 'Register players in the Players section to start the auction.'
                   : 'All players have been auctioned.'}
               </div>
+              {unsoldPlayers.length > 0 && userRole === 'host' && (
+                <button 
+                  onClick={handleRehostUnsold} 
+                  className="btn btn-primary" 
+                  style={{ marginTop: 20, padding: '12px 24px', fontSize: 16, fontFamily: 'Rajdhani', fontWeight: 700, letterSpacing: 1 }}
+                >
+                  🔄 RE-HOST {unsoldPlayers.length} UNSOLD PLAYERS
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -280,6 +347,13 @@ export default function Auction() {
           onUnsold={handleUnsold}
           onClose={() => { setShowBidding(false); setSelectedPlayer(null) }}
           getTeamSpent={getTeamSpent}
+          userRole={userRole}
+          currentBid={currentBid}
+          setCurrentBid={setCurrentBid}
+          selectedTeam={selectedTeam}
+          setSelectedTeam={setSelectedTeam}
+          bidHistory={bidHistory}
+          setBidHistory={setBidHistory}
         />
       )}
     </div>
@@ -293,7 +367,7 @@ const WHEEL_COLORS = [
   '#3498db', '#8e44ad', '#16a085', '#c0392b',
 ]
 
-function SpinWheel({ players, spinning, setSpinning, onResult, disabled }) {
+function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyncChannel, userRole }) {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
   const angleRef = useRef(0)
@@ -349,20 +423,30 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled }) {
       ctx.textBaseline = 'middle'
       ctx.shadowColor = 'rgba(0,0,0,0.5)'
       ctx.shadowBlur = 3
-      ctx.fillText(wheelPlayers[i].code, r * 0.65, 0)
+      // Draw name instead of code, truncated if too long
+      const displayName = wheelPlayers[i].name.length > 12 ? wheelPlayers[i].name.substring(0, 10) + '..' : wheelPlayers[i].name
+      ctx.fillText(displayName, r * 0.65, 0)
       ctx.restore()
     }
 
     // Center circle
     ctx.beginPath()
-    ctx.arc(cx, cy, 48, 0, 2 * Math.PI)
-    const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 48)
-    centerGrad.addColorStop(0, '#1a1f2e')
+    ctx.arc(cx, cy, 54, 0, 2 * Math.PI)
+    const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 54)
+    centerGrad.addColorStop(0, '#111420')
+    centerGrad.addColorStop(0.7, '#161b26')
     centerGrad.addColorStop(1, '#0e1118')
     ctx.fillStyle = centerGrad
     ctx.fill()
-    ctx.strokeStyle = 'rgba(245,166,35,0.4)'
-    ctx.lineWidth = 2
+    ctx.strokeStyle = 'rgba(245,166,35,0.8)'
+    ctx.lineWidth = 4
+    ctx.stroke()
+    
+    // Inner center glowing ring
+    ctx.beginPath()
+    ctx.arc(cx, cy, 46, 0, 2 * Math.PI)
+    ctx.strokeStyle = 'rgba(74,158,255,0.3)'
+    ctx.lineWidth = 1
     ctx.stroke()
 
     // Center text
@@ -391,6 +475,10 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled }) {
     if (spinning || wheelPlayers.length === 0 || disabled) return
     setSpinning(true)
     setResultCode(null)
+
+    if (liveSyncChannel && userRole === 'host') {
+      liveSyncChannel.send({ type: 'broadcast', event: 'spin_start' })
+    }
 
     const targetIdx = Math.floor(Math.random() * wheelPlayers.length)
     const fullRotations = (8 + Math.random() * 8) * 2 * Math.PI
@@ -441,18 +529,24 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled }) {
       {/* Pointer */}
       <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
         <div style={{
-          position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
           width: 0, height: 0, zIndex: 10,
-          borderLeft: '10px solid transparent',
-          borderRight: '10px solid transparent',
-          borderTop: '24px solid var(--gold)',
-          filter: 'drop-shadow(0 0 8px rgba(245,166,35,0.8))'
+          borderLeft: '14px solid transparent',
+          borderRight: '14px solid transparent',
+          borderTop: '32px solid var(--gold)',
+          filter: 'drop-shadow(0 0 12px rgba(245,166,35,0.9))'
         }} />
         <canvas
           ref={canvasRef}
-          width={300}
-          height={300}
-          style={{ cursor: spinning || disabled ? 'default' : 'pointer', maxWidth: '100%', filter: 'drop-shadow(0 0 24px rgba(0,0,0,0.6))', opacity: disabled ? 0.7 : 1 }}
+          width={380}
+          height={380}
+          style={{ 
+            cursor: spinning || disabled ? 'default' : 'pointer', 
+            maxWidth: '100%', 
+            filter: 'drop-shadow(0 0 32px rgba(74,158,255,0.25)) drop-shadow(0 0 16px rgba(245,166,35,0.15))', 
+            opacity: disabled ? 0.7 : 1,
+            borderRadius: '50%'
+          }}
           onClick={spin}
         />
       </div>
@@ -480,15 +574,14 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled }) {
 }
 
 // ===================== BIDDING MODAL =====================
-function BiddingModal({ player, teams, onSold, onUnsold, onClose, getTeamSpent }) {
-  const [currentBid, setCurrentBid] = useState(player.base_price)
-  const [selectedTeam, setSelectedTeam] = useState(null)
-  const [bidHistory, setBidHistory] = useState([{ amount: player.base_price, label: 'Base Price' }])
-
-  const BID_INCREMENTS = [0.25, 0.5, 1, 2, 5]
+function BiddingModal({ 
+  player, teams, onSold, onUnsold, onClose, getTeamSpent, userRole,
+  currentBid, setCurrentBid, selectedTeam, setSelectedTeam, bidHistory, setBidHistory 
+}) {
+  const BID_INCREMENTS = [0, 0.10, 0.20, 0.30]
 
   function placeBid(team, increment) {
-    const newBid = parseFloat((currentBid + increment).toFixed(2))
+    const newBid = Math.round((currentBid + increment) * 100) / 100
     const teamSpent = getTeamSpent(team)
     const purseLeft = team.total_purse - teamSpent
     if (newBid > purseLeft) {
@@ -497,7 +590,22 @@ function BiddingModal({ player, teams, onSold, onUnsold, onClose, getTeamSpent }
     }
     setCurrentBid(newBid)
     setSelectedTeam(team)
-    setBidHistory(h => [...h, { amount: newBid, teamName: team.name, teamColor: team.color }])
+    setBidHistory(h => [...h, { amount: newBid, teamName: team.name, teamColor: team.color, teamId: team.id }])
+  }
+
+  function undoBid() {
+    if (bidHistory.length <= 1) return
+    const newHistory = bidHistory.slice(0, -1)
+    const lastBid = newHistory[newHistory.length - 1]
+    setBidHistory(newHistory)
+    setCurrentBid(lastBid.amount)
+    
+    if (lastBid.teamId) {
+      const prevTeam = teams.find(t => t.id === lastBid.teamId)
+      setSelectedTeam(prevTeam)
+    } else {
+      setSelectedTeam(null)
+    }
   }
 
   function handleSold() {
@@ -511,50 +619,102 @@ function BiddingModal({ player, teams, onSold, onUnsold, onClose, getTeamSpent }
   }
 
   return (
-    <div className="modal-overlay" style={{ alignItems: 'flex-start', paddingTop: 70, overflowY: 'auto' }}>
-      <div className="modal" style={{ borderRadius: 'var(--radius-xl)', maxWidth: 460, margin: '0 auto' }}>
-        {/* Player info */}
-        <div style={{
-          background: `linear-gradient(135deg, ${roleColors[player.role] || 'var(--blue)'}22, transparent)`,
-          border: `1px solid ${roleColors[player.role] || 'var(--blue)'}33`,
-          borderRadius: 12, padding: 16, marginBottom: 16,
-          display: 'flex', gap: 12, alignItems: 'center'
-        }}>
-          {player.photo_url ? (
-            <img src={player.photo_url} alt={player.name} style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: 72, height: 72, borderRadius: 12, background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>👤</div>
-          )}
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--blue)', fontWeight: 600, marginBottom: 2 }}>{player.code}</div>
-            <div style={{ fontFamily: 'Rajdhani', fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{player.name}</div>
-            <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 13, marginTop: 2 }}>{player.role}</div>
+    <div className="modal-overlay" style={{ 
+      padding: 0, 
+      background: 'rgba(12,14,20,0.98)', 
+      backdropFilter: 'blur(32px)',
+      WebkitBackdropFilter: 'blur(32px)',
+      display: 'flex', 
+      flexDirection: 'column',
+      justifyContent: 'space-between'
+    }}>
+      {/* Top right close button (acts as cancel) */}
+      <button 
+        onClick={onClose} 
+        style={{ 
+          position: 'absolute', top: 20, right: 20, 
+          width: 44, height: 44, 
+          background: 'rgba(255,255,255,0.08)', 
+          border: '1px solid rgba(255,255,255,0.1)', 
+          borderRadius: '50%', 
+          color: '#fff', fontSize: 22, 
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', zIndex: 100, transition: 'all 0.2s'
+        }}
+      >
+        ✕
+      </button>
+
+      {/* Top half: Player Photo & Details */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 20px 20px',
+        background: `radial-gradient(circle at top, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`
+      }}>
+        {player.photo_url ? (
+          <img src={player.photo_url} alt={player.name} style={{ width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`, boxShadow: '0 12px 32px rgba(0,0,0,0.5)', marginBottom: 24 }} />
+        ) : (
+          <div style={{ width: 160, height: 160, borderRadius: '50%', background: 'var(--bg-secondary)', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64, marginBottom: 24, boxShadow: '0 12px 32px rgba(0,0,0,0.5)' }}>👤</div>
+        )}
+        <div style={{ fontSize: 14, color: 'var(--blue)', fontWeight: 800, letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>{player.code}</div>
+        <div style={{ fontFamily: 'Rajdhani', fontSize: 42, fontWeight: 900, lineHeight: 1.1, textAlign: 'center', textTransform: 'uppercase', marginBottom: 8 }}>{player.name}</div>
+        <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 16, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>{player.role}</div>
+      </div>
+
+      {/* Middle: Current Bid */}
+      <div style={{ padding: '0 24px', textAlign: 'center', marginBottom: 32 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>Current Bid</div>
+        <div style={{ fontSize: 64, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', lineHeight: 1, filter: 'drop-shadow(0 4px 16px rgba(245,166,35,0.4))' }}>
+          ₹ {currentBid} L
+        </div>
+        {selectedTeam && (
+          <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 10,
+            background: `${selectedTeam.color}22`, border: `1px solid ${selectedTeam.color}66`,
+            borderRadius: 12, padding: '8px 20px'
+          }}>
+            <div style={{ width: 12, height: 12, borderRadius: '50%', background: selectedTeam.color, boxShadow: `0 0 12px ${selectedTeam.color}` }} />
+            <span style={{ fontWeight: 800, fontSize: 16, color: selectedTeam.color, letterSpacing: 0.5 }}>{selectedTeam.name.toUpperCase()}</span>
           </div>
+        )}
+      </div>
+
+      {/* Bottom half: Teams, Increments, Actions */}
+      <div style={{
+        background: 'var(--bg-card)',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: '24px 20px 32px',
+        boxShadow: '0 -12px 40px rgba(0,0,0,0.6)',
+        display: 'flex', flexDirection: 'column', gap: 16
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Select Team & Increment
+          </div>
+          {userRole === 'host' && (
+            <button 
+              onClick={undoBid} 
+              disabled={bidHistory.length <= 1}
+              style={{ 
+                background: bidHistory.length <= 1 ? 'transparent' : 'rgba(255,255,255,0.05)', 
+                border: '1px solid var(--border)', 
+                color: bidHistory.length <= 1 ? 'var(--text-muted)' : 'var(--text-primary)', 
+                padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                cursor: bidHistory.length <= 1 ? 'default' : 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              ↩ Undo
+            </button>
+          )}
         </div>
 
-        {/* Current Bid */}
-        <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Current Bid</div>
-          <div style={{ fontSize: 40, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', lineHeight: 1 }}>
-            ₹ {currentBid} L
-          </div>
-          {selectedTeam && (
-            <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: `${selectedTeam.color}22`, border: `1px solid ${selectedTeam.color}44`,
-              borderRadius: 8, padding: '4px 12px'
-            }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedTeam.color }} />
-              <span style={{ fontWeight: 700, fontSize: 13, color: selectedTeam.color }}>{selectedTeam.name}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Teams bidding buttons */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-            Place Bid — Select Team & Increment
-          </div>
-
+        {/* Teams List */}
+        <div style={{ maxHeight: '25vh', overflowY: 'auto', paddingRight: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {teams.map(team => {
             const spent = getTeamSpent(team)
             const purseLeft = team.total_purse - spent
@@ -563,38 +723,40 @@ function BiddingModal({ player, teams, onSold, onUnsold, onClose, getTeamSpent }
             const canBid = !isFull && purseLeft > currentBid
 
             return (
-              <div key={team.id} style={{ marginBottom: 10 }}>
+              <div key={team.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  marginBottom: 4, padding: '6px 10px',
-                  background: selectedTeam?.id === team.id ? `${team.color}15` : 'transparent',
-                  borderRadius: 8,
-                  border: selectedTeam?.id === team.id ? `1px solid ${team.color}44` : '1px solid transparent'
+                  padding: '8px 12px',
+                  background: selectedTeam?.id === team.id ? `${team.color}15` : 'rgba(255,255,255,0.02)',
+                  borderRadius: 12,
+                  border: selectedTeam?.id === team.id ? `1px solid ${team.color}55` : '1px solid var(--border)'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: team.color }} />
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>{team.name}</span>
-                    {isFull && <span style={{ fontSize: 10, color: 'var(--red)' }}>FULL</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color }} />
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>{team.name}</span>
+                    {isFull && <span style={{ fontSize: 10, color: 'var(--red)', fontWeight: 800 }}>FULL</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', fontWeight: 600 }}>
+                  <div style={{ fontSize: 13, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', fontWeight: 800 }}>
                     ₹{purseLeft.toFixed(1)}L left
                   </div>
                 </div>
                 {canBid && (
-                  <div style={{ display: 'flex', gap: 5, paddingLeft: 10 }}>
+                  <div style={{ display: 'flex', gap: 6, paddingLeft: 12 }}>
                     {BID_INCREMENTS.map(inc => (
-                      currentBid + inc <= purseLeft && (
+                      (Math.round((currentBid + inc) * 100) / 100) <= purseLeft && (
                         <button
                           key={inc}
                           onClick={() => placeBid(team, inc)}
+                          disabled={userRole !== 'host'}
                           style={{
-                            padding: '4px 8px', borderRadius: 6,
-                            background: `${team.color}22`, border: `1px solid ${team.color}44`,
-                            color: team.color, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                            padding: '6px 10px', borderRadius: 8,
+                            background: userRole === 'host' ? `${team.color}22` : 'transparent', 
+                            border: `1px solid ${userRole === 'host' ? `${team.color}44` : 'var(--border)'}`,
+                            color: userRole === 'host' ? team.color : 'var(--text-muted)', 
+                            fontSize: 12, fontWeight: 800, 
+                            cursor: userRole === 'host' ? 'pointer' : 'default',
                             transition: 'all 0.15s'
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.background = `${team.color}44` }}
-                          onMouseLeave={e => { e.currentTarget.style.background = `${team.color}22` }}
                         >
                           +{inc}L
                         </button>
@@ -603,41 +765,41 @@ function BiddingModal({ player, teams, onSold, onUnsold, onClose, getTeamSpent }
                   </div>
                 )}
                 {!canBid && !isFull && (
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', paddingLeft: 10 }}>Insufficient purse</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', paddingLeft: 12, fontWeight: 600 }}>Insufficient purse for next bid</div>
                 )}
               </div>
             )
           })}
         </div>
 
-        {/* Bid History */}
+        {/* Bid History Optional (can be omitted for cleaner full screen, or kept small) */}
         {bidHistory.length > 1 && (
-          <div style={{ marginBottom: 16, maxHeight: 80, overflowY: 'auto' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Bid History</div>
-            {bidHistory.slice().reverse().map((h, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>
-                <span style={{ color: h.teamColor }}>{h.teamName || h.label}</span>
-                <span style={{ fontWeight: 700 }}>₹{h.amount}L</span>
-              </div>
-            ))}
+          <div style={{ maxHeight: 60, overflowY: 'auto', marginTop: 4 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Recent Bids</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {bidHistory.slice(-3).reverse().map((h, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)' }}>
+                  <span style={{ color: h.teamColor, fontWeight: 600 }}>{h.teamName || h.label}</span>
+                  <span style={{ fontWeight: 800 }}>₹{h.amount}L</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => onUnsold(player.id)} id="mark-unsold-btn">
+        {/* Fixed Bottom Action buttons */}
+        <div style={{ display: 'flex', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <button className="btn btn-ghost" style={{ flex: 1, padding: '16px 0', fontSize: 14, fontWeight: 800, letterSpacing: 1 }} onClick={() => onUnsold(player.id)}>
             UNSOLD
           </button>
           <button
             className="btn btn-gold"
-            style={{ flex: 2, fontSize: 15, fontFamily: 'Rajdhani', fontWeight: 700, letterSpacing: 1 }}
+            style={{ flex: 2, padding: '16px 0', fontSize: 20, fontFamily: 'Rajdhani', fontWeight: 900, letterSpacing: 1.5 }}
             onClick={handleSold}
             disabled={!selectedTeam}
-            id="sold-btn"
           >
             🔨 SOLD! ₹{currentBid}L
           </button>
-          <button className="btn btn-ghost" style={{ flex: 0.6 }} onClick={onClose}>✕</button>
         </div>
       </div>
     </div>

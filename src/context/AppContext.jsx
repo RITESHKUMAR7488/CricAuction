@@ -23,6 +23,7 @@ export function AppProvider({ children }) {
   const [userRole, setUserRole] = useState(null)
 
   const [leagueName, setLeagueName] = useState('ELITE LEAGUE')
+  const [leagueLogo, setLeagueLogo] = useState('/cricauction-logo.jpeg')
   const [activeAuction, setActiveAuction] = useState(null)
   const [auctions, setAuctions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -81,6 +82,9 @@ export function AppProvider({ children }) {
     const { data } = await supabase.from('settings').select('league_name').single()
     if (data) setLeagueName(data.league_name || 'ELITE LEAGUE')
 
+    const storedLogo = localStorage.getItem('league_logo')
+    if (storedLogo) setLeagueLogo(storedLogo)
+
     // Restore the active auction for this specific user from localStorage
     if (currentUser) {
       const storedId = getStoredAuctionId(currentUser.id)
@@ -115,6 +119,11 @@ export function AppProvider({ children }) {
   async function updateLeagueName(name) {
     setLeagueName(name)
     await supabase.from('settings').upsert({ id: 1, league_name: name })
+  }
+
+  async function updateLeagueLogo(url) {
+    setLeagueLogo(url)
+    localStorage.setItem('league_logo', url)
   }
 
   async function createAuction(name) {
@@ -197,6 +206,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       user, userRole, logout,
       leagueName, updateLeagueName,
+      leagueLogo, updateLeagueLogo,
       activeAuction, auctions,
       createAuction, joinAuction, switchAuction, resetAuction,
       clearActiveAuction,
