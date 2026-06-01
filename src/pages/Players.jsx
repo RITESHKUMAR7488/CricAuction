@@ -43,8 +43,8 @@ export default function Players() {
 
   const filtered = players.filter(p => {
     const matchSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.code.toLowerCase().includes(search.toLowerCase())
+      (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.code || '').toLowerCase().includes(search.toLowerCase())
     const matchRole = roleFilter === 'ALL' || p.role === roleFilter
     return matchSearch && matchRole
   })
@@ -69,28 +69,26 @@ export default function Players() {
   }
 
   return (
-    <div className="page-content">
+    <div className="page-content" style={{ overflowX: 'hidden' }}>
       {/* Header */}
-      <div className="page-header" style={{ marginBottom: 16, alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <h1 className="page-title">PLAYERS</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{sold}/{totalPlayers}</div>
-              <div style={{ fontSize: 9, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Players</div>
-            </div>
-            {userRole === 'host' && (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)} id="register-player-btn" style={{ padding: '6px 10px', fontSize: 11 }}>
-                + REGISTER
-              </button>
-            )}
+      <div className="page-header" style={{ marginBottom: 14 }}>
+        <h1 className="page-title">PLAYERS</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{sold}/{totalPlayers}</div>
+            <div style={{ fontSize: 9, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sold/Total</div>
           </div>
+          {userRole === 'host' && (
+            <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)} id="register-player-btn" style={{ padding: '7px 12px', fontSize: 11 }}>
+              + ADD
+            </button>
+          )}
         </div>
       </div>
 
       {/* Search + Filter row */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div className="search-bar" style={{ flex: '1 1 160px', marginBottom: 0, minWidth: 0 }}>
           <span className="search-icon">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </span>
@@ -190,7 +188,6 @@ function PlayerCard({ player, roleColors, onClick, onDelete }) {
 
       {/* Info */}
       <div className="player-info">
-        <div style={{ fontSize: 9, fontWeight: 800, color: roleColor, letterSpacing: 0.5, marginBottom: 2 }}>{player.code}</div>
         <div className="player-name">{player.name}</div>
         <div className="player-role" style={{ color: roleColor }}>{player.role}</div>
         <div className="player-stats">
@@ -237,8 +234,8 @@ function PlayerCard({ player, roleColors, onClick, onDelete }) {
             ₹ {player.status === 'sold' ? player.sold_price : player.base_price} L
           </div>
         </div>
-        <span className={`badge badge-${player.status}`}>
-          {player.status.toUpperCase()}
+        <span className={`badge badge-${player.status || 'available'}`}>
+          {(player.status || 'available').toUpperCase()}
         </span>
         {player.status === 'sold' && player.teams && (
           <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{player.teams.name}</div>

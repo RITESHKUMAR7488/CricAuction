@@ -59,7 +59,7 @@ export default function Teams() {
   }
 
   const filtered = teams.filter(t => {
-    const matchSearch = t.name.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = (t.name || '').toLowerCase().includes(search.toLowerCase())
     const matchOwner = ownerFilter === 'all' || t.owner_id === ownerFilter
     return matchSearch && matchOwner
   })
@@ -110,9 +110,9 @@ export default function Teams() {
         )}
       </div>
 
-      {/* Search + Owner filter + View toggle (Moved above Stats) */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+      {/* Search + Owner filter + View toggle */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="search-bar" style={{ flex: '1 1 160px', marginBottom: 0, minWidth: 0 }}>
           <span className="search-icon">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </span>
@@ -123,7 +123,7 @@ export default function Teams() {
           className="form-select"
           value={ownerFilter}
           onChange={e => setOwnerFilter(e.target.value)}
-          style={{ width: 'auto', padding: '10px 28px 10px 10px', fontSize: 12, flexShrink: 0 }}
+          style={{ width: 'auto', minWidth: 110, padding: '10px 28px 10px 10px', fontSize: 12, flexShrink: 0 }}
           id="owner-filter-select"
         >
           <option value="all">All Owners</option>
@@ -249,7 +249,7 @@ function TeamCard({ team, rank, getSpent, onClick, onEdit, onDelete }) {
   return (
     <div
       className="team-card"
-      style={{ '--team-color': tc, background: tc + '22', borderColor: tc + '44' }}
+      style={{ '--team-color': tc, background: tc + '30', borderColor: tc + '66' }}
       onClick={onClick}
       id={`team-card-${team.id}`}
     >
@@ -275,9 +275,9 @@ function TeamCard({ team, rank, getSpent, onClick, onEdit, onDelete }) {
           {onDelete && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete() }}
-              style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '4px', fontSize: 16 }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '4px', fontSize: 16, lineHeight: 1, fontWeight: 700 }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              ✕
             </button>
           )}
         </div>
@@ -390,9 +390,9 @@ function TeamListItem({ team, rank, getSpent, onClick, onEdit, onDelete }) {
         {onDelete && (
           <button
             onClick={e => { e.stopPropagation(); onDelete() }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: '4px' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: '4px', fontSize: 16, lineHeight: 1, fontWeight: 700 }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            ✕
           </button>
         )}
         <div style={{ color: 'var(--text-muted)', fontSize: 18, paddingLeft: 4 }}>›</div>

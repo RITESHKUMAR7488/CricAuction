@@ -65,19 +65,9 @@ export default function Rankings() {
       {/* Stats Row Removed */}
 
 
-      {/* Page title + dropdown */}
-      <div className="page-header">
+      {/* Page title */}
+      <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-title">RANKINGS</h1>
-        <select
-          className="form-select"
-          value={tab}
-          onChange={e => setTab(e.target.value)}
-          style={{ width: 'auto', padding: '7px 32px 7px 12px', fontSize: 12, fontWeight: 600 }}
-          id="rankings-filter-select"
-        >
-          <option value="all">ALL PLAYERS</option>
-          <option value="sold">SOLD PLAYERS</option>
-        </select>
       </div>
 
       {/* Underline tabs */}
@@ -221,23 +211,22 @@ function PodiumCard({ player, rank, onClick }) {
   }
 
   const c = configs[rank]
-  const photoSize = isFirst ? 72 : 58
 
   return (
     <div
       className="podium-card"
       style={{
         flex: 1,
-        maxWidth: 200,
-        width: '30%',
+        maxWidth: isFirst ? 160 : 130,
+        minWidth: 0,
         background: c.bg,
         border: `1px solid ${c.border}`,
         boxShadow: c.glow,
-        transform: isFirst ? 'translateY(-24px)' : 'none',
-        paddingTop: 20,
+        transform: isFirst ? 'translateY(-20px)' : 'none',
+        paddingTop: 18,
         borderRadius: 16,
         position: 'relative',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 16
+        display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 14
       }}
       onClick={onClick}
     >
@@ -252,37 +241,59 @@ function PodiumCard({ player, rank, onClick }) {
           src={player.photo_url}
           alt={player.name}
           className="podium-photo"
-          style={{ width: photoSize, height: photoSize, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${c.border}`, marginBottom: 12 }}
+          style={{
+            width: isFirst ? '62%' : '54%',
+            aspectRatio: '1',
+            borderRadius: '50%',
+            objectFit: 'cover',
+            border: `3px solid ${c.border}`,
+            marginBottom: 10,
+            maxWidth: isFirst ? 68 : 56,
+            minWidth: isFirst ? 44 : 36,
+          }}
         />
       ) : (
         <div
           className="podium-photo-placeholder"
-          style={{ width: photoSize, height: photoSize, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', border: `3px solid ${c.border}`, marginBottom: 12, fontSize: isFirst ? 36 : 28 }}
+          style={{
+            width: isFirst ? '62%' : '54%',
+            aspectRatio: '1',
+            maxWidth: isFirst ? 68 : 56,
+            minWidth: isFirst ? 44 : 36,
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--bg-secondary)',
+            border: `3px solid ${c.border}`,
+            marginBottom: 10,
+            fontSize: isFirst ? 28 : 22,
+          }}
         >
           👤
         </div>
       )}
 
       {/* Name */}
-      <div className="podium-name" style={{ fontSize: isFirst ? 14 : 12 }}>{player.name}</div>
+      <div className="podium-name" style={{ fontSize: isFirst ? 13 : 11, padding: '0 6px', textAlign: 'center', wordBreak: 'break-word' }}>
+        {player.name}
+      </div>
 
       {/* Team */}
       {player.teams && (
-        <div className="podium-team" style={{ color: player.teams.color || 'var(--text-muted)' }}>
-          <span style={{ fontSize: 12 }}>🏆</span>
-          <span style={{ fontSize: 10, fontWeight: 600 }}>{player.teams.name}</span>
+        <div className="podium-team" style={{ color: player.teams.color || 'var(--text-muted)', padding: '0 4px' }}>
+          <span style={{ fontSize: 10 }}>🏆</span>
+          <span style={{ fontSize: 9, fontWeight: 600 }}>{player.teams.name}</span>
         </div>
       )}
 
       {/* Price */}
-      <div className="podium-price" style={{ fontSize: isFirst ? 15 : 13 }}>
+      <div className="podium-price" style={{ fontSize: isFirst ? 14 : 12 }}>
         ₹{player.sold_price}L
       </div>
 
       {/* Role badge */}
       <div
         className="podium-role-badge"
-        style={{ background: c.badgeBg, color: c.badgeColor, border: `1px solid ${c.border}` }}
+        style={{ background: c.badgeBg, color: c.badgeColor, border: `1px solid ${c.border}`, fontSize: 8 }}
       >
         {player.role?.toUpperCase()}
       </div>

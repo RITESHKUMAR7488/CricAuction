@@ -10,6 +10,7 @@ export default function SideMenu({ onClose }) {
   const [nameInput, setNameInput] = useState(leagueName)
   const [logoInput, setLogoInput] = useState(leagueLogo)
   const [auctionName, setAuctionName] = useState('')
+  const [hostEmail, setHostEmail] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleRename() {
@@ -110,6 +111,9 @@ export default function SideMenu({ onClose }) {
               <div className="menu-item" onClick={() => { setView('updatelogo'); setLogoInput(leagueLogo) }} id="menu-update-logo">
                 <span>🖼️</span> Update Logo
               </div>
+              <div className="menu-item" onClick={() => { setView('addhost'); setHostEmail('') }} id="menu-add-host">
+                <span>👑</span> Add Co-Host
+              </div>
               <div className="menu-divider" />
             </>
           )}
@@ -160,6 +164,14 @@ export default function SideMenu({ onClose }) {
               </div>
             </>
           )}
+
+          <div className="menu-divider" />
+          <div className="menu-item" onClick={async () => {
+            await supabase.auth.signOut()
+            onClose()
+          }} id="menu-logout">
+            <span>🚪</span> Log Out
+          </div>
         </>}
 
         {view === 'rename' && (
@@ -179,19 +191,78 @@ export default function SideMenu({ onClose }) {
           </div>
         )}
 
-        {view === 'updatelogo' && (
+        {view === 'updatelogo' && (() => {
+          const fileRef2 = React.createRef()
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Update Tournament Logo</div>
+              <input ref={fileRef2} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  try {
+                    const { uploadFile } = await import('../lib/supabase')
+                    setLoading(true)
+                    const url = await uploadFile(file, 'logos')
+                    await updateLeagueLogo(url)
+                    setView('main')
+                    showToast('Logo updated!', 'success')
+                  } catch(err) {
+                    showToast('Upload error: ' + err.message, 'error')
+                  } finally { setLoading(false) }
+                }}
+              />
+              {leagueLogo && (
+                <img src={leagueLogo} alt="current logo" style={{ width: 80, height: 80, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
+              )}
+              <button className="btn btn-primary btn-sm" onClick={() => fileRef2.current?.click()} disabled={loading}>
+                {loading ? 'Uploading...' : '📷 Choose Photo'}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
+            </div>
+          )
+        })()}
+
+        {view === 'addhost' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Update Logo URL</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Add Co-Host</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Enter the email address of the person you want to make a co-host.</div>
             <input
+              type="email"
               className="form-input"
-              value={logoInput}
-              onChange={e => setLogoInput(e.target.value)}
-              placeholder="e.g. https://example.com/logo.png"
-              id="update-logo-input"
+              value={hostEmail}
+              onChange={e => setHostEmail(e.target.value)}
+              placeholder="e.g. host2@example.com"
             />
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={handleUpdateLogo} id="update-logo-save">Save</button>
+              <button className="btn btn-primary btn-sm" onClick={async () => {
+                if (!hostEmail) return;
+                setLoading(true);
+                try {
+                  // Fetch current co_hosts
+                  const { data } = await supabase.from('auctions').select('co_hosts').eq('id', activeAuction.id).single();
+                  const currentHosts = data?.co_hosts || [];
+                  if (!currentHosts.includes(hostEmail.toLowerCase())) {
+                    const newHosts = [...currentHosts, hostEmail.toLowerCase()];
+                    const { error } = await supabase.from('auctions').update({ co_hosts: newHosts }).eq('id', activeAuction.id);
+                    if (error) {
+                      if (error.message.includes('co_hosts')) {
+                        throw new Error('Database column "co_hosts" is missing. Please run the SQL migration to add it.');
+                      }
+                      throw error;
+                    }
+                  }
+                  showToast('Co-host added successfully!', 'success');
+                  setView('main');
+                } catch(err) {
+                  showToast('Error: ' + err.message, 'error');
+                } finally {
+                  setLoading(false);
+                }
+              }} disabled={loading}>
+                {loading ? 'Adding...' : 'Add Host'}
+              </button>
             </div>
           </div>
         )}
@@ -239,8 +310,8 @@ export default function SideMenu({ onClose }) {
           </div>
         )}
 
-        <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
-          <img src="/cricauction-logo.jpeg" alt="Powered by BRICX" style={{ width: 100, borderRadius: 12, marginBottom: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} />
+        <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
+          <img src="/cricauction-logo.jpeg" alt="Powered by BRICX" style={{ width: 80, borderRadius: 12, marginBottom: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} />
         </div>
       </div>
     </div>

@@ -25,7 +25,11 @@ export default function Sponsors() {
 
   async function deleteSponsor(id) {
     if (!window.confirm('Remove this sponsor picture?')) return
-    await supabase.from('sponsors').delete().eq('id', id)
+    const { error } = await supabase.from('sponsors').delete().eq('id', id)
+    if (error) {
+      showToast('Error removing sponsor: ' + error.message, 'error')
+      return
+    }
     showToast('Sponsor removed', 'info')
     loadSponsors()
   }
@@ -52,7 +56,7 @@ export default function Sponsors() {
   }
 
   return (
-    <div className="page-content" style={{ padding: '20px 16px' }}>
+    <div className="page-content">
       {/* Header */}
       <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title" style={{ fontSize: 22 }}>SPONSORS</h1>
@@ -118,12 +122,12 @@ export default function Sponsors() {
                 </div>
 
                 {/* Image */}
-                <div style={{ width: '100%', display: 'block' }}>
+                <div style={{ width: '100%', display: 'block', background: 'var(--bg-secondary)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', overflow: 'hidden' }}>
                   {sponsor.logo_url ? (
                     <img 
                       src={sponsor.logo_url} 
                       alt={`Sponsor ${sponsor.deal_value}`} 
-                      style={{ width: '100%', height: 'auto', display: 'block' }} 
+                      style={{ width: '100%', height: 'auto', maxHeight: 320, objectFit: 'contain', display: 'block' }} 
                     />
                   ) : (
                     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No image uploaded</div>
@@ -202,7 +206,7 @@ function AddPictureModal({ onClose, onSaved, nextOrder }) {
             >
               <input ref={fileRef} type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if(f){ setPhoto(f); setPhotoPreview(URL.createObjectURL(f)) }}} style={{ display: 'none' }} />
               {photoPreview ? (
-                <img src={photoPreview} alt="preview" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                <img src={photoPreview} alt="preview" style={{ width: '100%', height: 'auto', maxHeight: 240, objectFit: 'contain', display: 'block' }} />
               ) : (
                 <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8, margin: '0 auto' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -224,9 +228,9 @@ function AddPictureModal({ onClose, onSaved, nextOrder }) {
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>This number determines the display sequence.</div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-            <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" style={{ flex: 2 }} disabled={loading}>
+          <div className="form-actions">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
               {loading ? 'Attaching...' : 'Attach Picture'}
             </button>
           </div>

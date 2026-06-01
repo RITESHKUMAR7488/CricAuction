@@ -59,18 +59,19 @@ export default function PlayerDetail() {
   const isBowler = player.role === 'Bowler'
 
   return (
-    <div className="page-content" style={{ paddingTop: 0 }}>
+    <div className="page-content">
       {/* Back Button & Header */}
-      <div className="page-header" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ padding: 0, color: 'var(--text-secondary)' }}>
-          <span style={{ fontSize: 18, marginRight: 4 }}>←</span> Back
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ color: 'var(--text-secondary)', padding: '7px 12px' }}>
+          <span style={{ fontSize: 16, lineHeight: 1 }}>←</span>
+          <span>Back</span>
         </button>
         {userRole === 'host' && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowEditModal(true)} style={{ padding: '6px 12px', color: 'var(--blue)' }}>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowEditModal(true)} style={{ color: 'var(--blue)', padding: '7px 14px' }}>
               Edit
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={handleDelete} style={{ padding: '6px 12px', color: 'var(--red)' }}>
+            <button className="btn btn-ghost btn-sm" onClick={handleDelete} style={{ color: 'var(--red)', padding: '7px 14px' }}>
               Delete
             </button>
           </div>
@@ -93,7 +94,7 @@ export default function PlayerDetail() {
           pointerEvents: 'none'
         }} />
 
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
             {player.photo_url ? (
               <img
@@ -165,7 +166,7 @@ export default function PlayerDetail() {
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
           Player Stats
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 16 }}>
           {[
             { label: 'Age', value: player.age || '—' },
             { label: 'Style', value: player.style || '—' },

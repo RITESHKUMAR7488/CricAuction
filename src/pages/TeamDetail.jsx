@@ -72,11 +72,12 @@ export default function TeamDetail() {
   const progress = team.total_purse > 0 ? (spent / team.total_purse) * 100 : 0
 
   return (
-    <div className="page-content" style={{ paddingTop: 0 }}>
+    <div className="page-content">
       {/* Back Button & Header */}
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ padding: 0, color: 'var(--text-secondary)' }}>
-          <span style={{ fontSize: 18, marginRight: 4 }}>←</span> Back
+      <div style={{ marginBottom: 14 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ color: 'var(--text-secondary)', padding: '7px 12px' }}>
+          <span style={{ fontSize: 16, lineHeight: 1 }}>←</span>
+          <span>Back</span>
         </button>
       </div>
 
@@ -88,7 +89,7 @@ export default function TeamDetail() {
         padding: 20,
         marginBottom: 16,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           {team.logo_url ? (
             <img src={team.logo_url} alt={team.name} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover' }} />
           ) : (
@@ -248,7 +249,7 @@ function AddPlayerModal({ team, onClose, onSaved }) {
           <div className="form-group">
             <label className="form-label">Select Available Player</label>
             <select 
-              className="form-input" 
+              className="form-select" 
               value={selectedPlayerId} 
               onChange={e => setSelectedPlayerId(e.target.value)}
               required

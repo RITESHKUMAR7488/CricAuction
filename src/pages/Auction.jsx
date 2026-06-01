@@ -45,8 +45,21 @@ export default function Auction() {
     channel.on('broadcast', { event: 'spin_result' }, (payload) => {
       if (userRole !== 'host') {
         setSpinning(false)
-        if (payload.payload?.playerId) {
-          // Find player in data
+        if (payload.payload?.playerCode) {
+          // Find the player and open the bidding view for audience
+          const code = payload.payload.playerCode
+          // We use a functional update on players to find correctly even if state hasn't settled
+          setPlayers(prev => {
+            const player = prev.find(p => p.code === code)
+            if (player) {
+              setSelectedPlayer(player)
+              setCurrentBid(0)
+              setSelectedTeam(null)
+              setBidHistory([{ amount: 0, label: 'Base Price' }])
+              setShowBidding(true)
+            }
+            return prev
+          })
         }
       }
     })
@@ -100,9 +113,9 @@ export default function Auction() {
     const player = players.find(p => p.code === playerCode)
     if (player) {
       setSelectedPlayer(player)
-      setCurrentBid(player.base_price)
+      setCurrentBid(0)  // Always start from 0.0L — 0.0 means base price bid
       setSelectedTeam(null)
-      setBidHistory([{ amount: player.base_price, label: 'Base Price' }])
+      setBidHistory([{ amount: 0, label: 'Base Price (0.0L = Pick at Base)' }])
       setShowBidding(true)
 
       if (liveSyncChannel && userRole === 'host') {
@@ -110,9 +123,10 @@ export default function Auction() {
           type: 'broadcast', event: 'bidding_update',
           payload: {
             playerId: player.id,
-            currentBid: player.base_price,
+            playerCode: player.code,
+            currentBid: 0,
             selectedTeamId: null,
-            bidHistory: [{ amount: player.base_price, label: 'Base Price' }]
+            bidHistory: [{ amount: 0, label: 'Base Price' }]
           }
         })
       }
@@ -205,13 +219,15 @@ export default function Auction() {
 
   if (!activeAuction) {
     return (
-      <div className="page-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>⚡</div>
-        <div style={{ fontFamily: 'Rajdhani', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>No Auction Active</div>
-        <div style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: 24, fontSize: 14 }}>
-          Create or select an auction from the menu to start bidding
+      <div className="page-content">
+        <div className="empty-state">
+          <div className="empty-state-icon" style={{ fontSize: 64 }}>⚡</div>
+          <div className="empty-state-title" style={{ fontFamily: 'Rajdhani', fontSize: 24 }}>No Auction Active</div>
+          <div className="empty-state-desc">
+            Create or select an auction from the menu to start bidding
+          </div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Tap ☰ in the top right</div>
         </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Tap ☰ in the top right</div>
       </div>
     )
   }
@@ -229,14 +245,12 @@ export default function Auction() {
         <div>
           {/* Teams Purse Overview */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: 1 }}>
-                  TEAMS &amp; PURSE OVERVIEW
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.8, whiteSpace: 'nowrap' }}>
+                TEAMS & PURSE OVERVIEW
               </div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                {soldPlayers.length} PLAYERS SOLD
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {soldPlayers.length} SOLD
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none' }}>
@@ -306,7 +320,23 @@ export default function Auction() {
         {/* RIGHT COLUMN — Spin Wheel */}
         <div>
           {availablePlayers.length > 0 ? (
-      <div className="auction-wheel-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div className="auction-wheel-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+        {/* Universe starfield background */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+          backgroundImage: [
+            'radial-gradient(1.5px 1.5px at 12% 20%, rgba(255,255,255,0.5), transparent)',
+            'radial-gradient(1.5px 1.5px at 85% 15%, rgba(255,255,255,0.4), transparent)',
+            'radial-gradient(1px 1px at 40% 75%, rgba(255,255,255,0.35), transparent)',
+            'radial-gradient(1.5px 1.5px at 70% 50%, rgba(255,255,255,0.45), transparent)',
+            'radial-gradient(1px 1px at 25% 90%, rgba(255,255,255,0.3), transparent)',
+            'radial-gradient(1.5px 1.5px at 90% 80%, rgba(255,255,255,0.4), transparent)',
+            'radial-gradient(1px 1px at 55% 35%, rgba(255,255,255,0.3), transparent)',
+            'radial-gradient(1px 1px at 10% 60%, rgba(255,255,255,0.25), transparent)',
+            'radial-gradient(1.5px 1.5px at 60% 5%, rgba(245,166,35,0.3), transparent)',
+            'radial-gradient(1px 1px at 30% 45%, rgba(74,158,255,0.2), transparent)',
+          ].join(',')
+        }} />
         <SpinWheel
           players={availablePlayers}
           spinning={spinning}
@@ -511,6 +541,13 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
         setSpinning(false)
         const code = wheelPlayers[targetIdx].code
         setResultCode(code)
+        // Broadcast result to audience so their phones open bidding view
+        if (liveSyncChannel && userRole === 'host') {
+          liveSyncChannel.send({
+            type: 'broadcast', event: 'spin_result',
+            payload: { playerCode: code }
+          })
+        }
         setTimeout(() => onResult(code), 600)
       }
     }
@@ -519,24 +556,24 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       {/* Draw Label */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
-        color: 'var(--gold)', fontFamily: 'Rajdhani', fontSize: 15, fontWeight: 700, letterSpacing: 2
+        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14,
+        color: 'var(--gold)', fontFamily: 'Rajdhani', fontSize: 14, fontWeight: 700, letterSpacing: 2
       }}>
         <span>→</span> NEXT PLAYER DRAW <span>←</span>
       </div>
 
-      {/* Pointer */}
-      <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
+      {/* Pointer + Canvas */}
+      <div style={{ position: 'relative', width: '100%', maxWidth: 380, display: 'flex', justifyContent: 'center' }}>
         <div style={{
-          position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
           width: 0, height: 0, zIndex: 10,
-          borderLeft: '14px solid transparent',
-          borderRight: '14px solid transparent',
-          borderTop: '32px solid var(--gold)',
-          filter: 'drop-shadow(0 0 12px rgba(245,166,35,0.9))'
+          borderLeft: '12px solid transparent',
+          borderRight: '12px solid transparent',
+          borderTop: '28px solid var(--gold)',
+          filter: 'drop-shadow(0 0 10px rgba(245,166,35,0.9))'
         }} />
         <canvas
           ref={canvasRef}
@@ -544,8 +581,10 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
           height={380}
           style={{ 
             cursor: spinning || disabled ? 'default' : 'pointer', 
-            maxWidth: '100%', 
-            filter: 'drop-shadow(0 0 32px rgba(74,158,255,0.25)) drop-shadow(0 0 16px rgba(245,166,35,0.15))', 
+            width: '100%',
+            height: 'auto',
+            maxWidth: 380,
+            filter: 'drop-shadow(0 0 28px rgba(74,158,255,0.25)) drop-shadow(0 0 14px rgba(245,166,35,0.15))', 
             opacity: disabled ? 0.7 : 1,
             borderRadius: '50%'
           }}
@@ -555,7 +594,7 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
 
       {resultCode && (
         <div style={{
-          marginTop: 16,
+          marginTop: 14,
           background: 'rgba(245,166,35,0.1)',
           border: '1px solid rgba(245,166,35,0.3)',
           borderRadius: 12,
@@ -568,7 +607,7 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
         </div>
       )}
 
-      <div style={{ marginTop: 12, color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
+      <div style={{ marginTop: 10, color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
         {wheelPlayers.length} players available{wheelPlayers.length < (players?.length || 0) ? ' — showing first 16' : ''}
       </div>
     </div>
@@ -743,7 +782,7 @@ function BiddingModal({
                   </div>
                 </div>
                 {canBid && (
-                  <div style={{ display: 'flex', gap: 6, paddingLeft: 12 }}>
+                  <div style={{ display: 'flex', gap: 6, paddingLeft: 12, flexWrap: 'wrap' }}>
                     {BID_INCREMENTS.map(inc => (
                       (Math.round((currentBid + inc) * 100) / 100) <= purseLeft && (
                         <button

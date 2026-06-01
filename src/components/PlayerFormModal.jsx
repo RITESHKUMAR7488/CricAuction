@@ -99,7 +99,7 @@ export default function PlayerFormModal({ auctionId, existingCodes, editPlayer, 
           <div className="form-group">
             <label className="form-label">Player Photo</label>
             <div className="photo-upload" onClick={() => fileRef.current.click()}>
-              <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoChange} />
+              <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
               {photoPreview ? (
                 <img src={photoPreview} alt="preview" className="photo-upload-preview" />
               ) : (
@@ -209,9 +209,9 @@ export default function PlayerFormModal({ auctionId, existingCodes, editPlayer, 
             Player code will be: <strong style={{ color: 'var(--blue)' }}>{nextCode()}</strong>
           </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" style={{ flex: 2 }} disabled={loading} id="register-player-submit">
+          <div className="form-actions">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading} id="register-player-submit">
               {loading ? (editPlayer ? 'Saving...' : 'Registering...') : (editPlayer ? 'Save Changes' : 'Register Player')}
             </button>
           </div>

@@ -67,37 +67,19 @@ export default function Navbar() {
 
   return (
     <>
-      <div className="sponsor-strip" style={{
-        position: 'fixed',
-        bottom: '95px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'calc(100% - 32px)',
-        maxWidth: 'calc(480px - 32px)',
-        height: '44px',
-        background: 'rgba(18, 22, 33, 0.7)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '22px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 16px',
-        zIndex: 100,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
-      }}>
+      {/* Sponsor strip — hidden on desktop sidebar layout */}
+      <div className="sponsor-strip-bar">
         {/* Left: BricX Logo */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-           <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1.5 }}>BricX</div>
+          <div style={{ fontSize: 15, fontWeight: 900, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1.5 }}>BricX</div>
         </div>
 
         {/* Center: Title Sponsor */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {titleSponsor?.logo_url ? (
-            <img src={titleSponsor.logo_url} alt="Title Sponsor" style={{ maxHeight: 28, maxWidth: 80, objectFit: 'contain' }} />
+            <img src={titleSponsor.logo_url} alt="Title Sponsor" style={{ maxHeight: 26, maxWidth: 72, objectFit: 'contain' }} />
           ) : titleSponsor ? (
-             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{titleSponsor.name.toUpperCase()}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{titleSponsor.name.toUpperCase()}</div>
           ) : (
             <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>No Title Sponsor</div>
           )}
@@ -106,9 +88,9 @@ export default function Navbar() {
         {/* Right: Co Sponsor */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           {coSponsor?.logo_url ? (
-            <img src={coSponsor.logo_url} alt="Co-Sponsor" style={{ maxHeight: 24, maxWidth: 60, objectFit: 'contain' }} />
+            <img src={coSponsor.logo_url} alt="Co-Sponsor" style={{ maxHeight: 22, maxWidth: 56, objectFit: 'contain' }} />
           ) : coSponsor ? (
-             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{coSponsor.name.toUpperCase()}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{coSponsor.name.toUpperCase()}</div>
           ) : (
             <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>No Co-Sponsor</div>
           )}
