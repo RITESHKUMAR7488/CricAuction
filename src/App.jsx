@@ -12,6 +12,7 @@ import Rankings from './pages/Rankings'
 import Players from './pages/Players'
 import PlayerDetail from './pages/PlayerDetail'
 import Sponsors from './pages/Sponsors'
+import Landing from './pages/Landing'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -91,6 +92,7 @@ function AppInner() {
   return (
     <div className="app-container">
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
         
         {/* Protected Dashboard */}
@@ -105,7 +107,7 @@ function AppInner() {
           <AuthGuard>
             <AppLayout>
               <Routes>
-                <Route path="/" element={<Auction />} />
+                <Route path="/auction" element={<Auction />} />
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/teams/:id" element={<TeamDetail />} />
                 <Route path="/rankings" element={<Rankings />} />

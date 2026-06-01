@@ -47,7 +47,7 @@ const StarIcon = ({ size = 20 }) => (
 )
 
 const navItems = [
-  { to: '/',         label: 'AUCTION',   Icon: GavelIcon,  exact: true },
+  { to: '/auction',  label: 'AUCTION',   Icon: GavelIcon,  exact: true },
   { to: '/teams',    label: 'TEAMS',     Icon: UsersIcon },
   { to: '/rankings', label: 'RANKINGS',  Icon: TrophyIcon },
   { to: '/players',  label: 'PLAYERS',   Icon: PersonIcon },
