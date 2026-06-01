@@ -623,8 +623,8 @@ function BiddingModal({
 
   function placeBid(team, increment) {
     const newBid = Math.round((currentBid + increment) * 100) / 100
-    const teamSpent = getTeamSpent(team)
-    const purseLeft = team.total_purse - teamSpent
+    const teamSpent = Math.round(getTeamSpent(team) * 100) / 100
+    const purseLeft = Math.round((team.total_purse - teamSpent) * 100) / 100
     if (newBid > purseLeft) {
       showToast(`${team.name} doesn't have enough purse!`, 'error')
       return
