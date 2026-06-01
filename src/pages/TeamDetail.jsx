@@ -12,6 +12,7 @@ export default function TeamDetail() {
   const [team, setTeam] = useState(null)
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
 
   useEffect(() => {
     loadTeam()
@@ -50,6 +51,19 @@ export default function TeamDetail() {
     setLoading(false)
   }
 
+  async function handleRemovePlayer(e, player) {
+    e.stopPropagation()
+    if (!window.confirm(`Remove ${player.name} from ${team.name}? They will return to the auction.`)) return
+    try {
+      const { error } = await supabase.from('players').update({ status: 'available', team_id: null, sold_price: null }).eq('id', player.id)
+      if (error) throw error
+      showToast('Player removed from team', 'info')
+      loadTeam()
+    } catch(err) {
+      showToast('Error removing player', 'error')
+    }
+  }
+
   if (loading) return <div className="page-content"><div className="loading-spinner"><div className="spinner" /></div></div>
   if (!team) return <div className="page-content"><div className="empty-state"><div className="empty-state-title">Team not found</div></div></div>
 
@@ -58,8 +72,14 @@ export default function TeamDetail() {
   const progress = team.total_purse > 0 ? (spent / team.total_purse) * 100 : 0
 
   return (
-    <div className="page-content" style={{ paddingTop: 16 }}>
-      <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>← Back</button>
+    <div className="page-content">
+      {/* Back Button & Header */}
+      <div style={{ marginBottom: 14 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ color: 'var(--text-secondary)', padding: '7px 12px' }}>
+          <span style={{ fontSize: 16, lineHeight: 1 }}>←</span>
+          <span>Back</span>
+        </button>
+      </div>
 
       {/* Team Header */}
       <div style={{
@@ -69,7 +89,7 @@ export default function TeamDetail() {
         padding: 20,
         marginBottom: 16,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           {team.logo_url ? (
             <img src={team.logo_url} alt={team.name} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover' }} />
           ) : (
@@ -117,8 +137,15 @@ export default function TeamDetail() {
       </div>
 
       {/* Players */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-        Squad ({players.length})
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1 }}>
+          Squad ({players.length})
+        </div>
+        {userRole === 'host' && (
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddPlayer(true)}>
+            + ADD PLAYER
+          </button>
+        )}
       </div>
 
       {players.length === 0 ? (
@@ -145,13 +172,114 @@ export default function TeamDetail() {
               <div style={{ fontSize: 12, color: roleColors[player.role] || 'var(--blue)' }}>{player.role}</div>
               <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{player.code}</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--gold)' }}>₹{player.sold_price}L</div>
               <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sold For</div>
+              {userRole === 'host' && (
+                <button 
+                  onClick={(e) => handleRemovePlayer(e, player)} 
+                  style={{ background: 'transparent', border: 'none', color: 'var(--red)', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '4px 0 0', marginTop: 4, textTransform: 'uppercase' }}
+                >
+                  ✕ Remove
+                </button>
+              )}
             </div>
           </div>
         ))
       )}
+      {showAddPlayer && (
+        <AddPlayerModal 
+          team={team} 
+          onClose={() => setShowAddPlayer(false)} 
+          onSaved={() => { setShowAddPlayer(false); loadTeam() }} 
+        />
+      )}
+    </div>
+  )
+}
+
+function AddPlayerModal({ team, onClose, onSaved }) {
+  const [availablePlayers, setAvailablePlayers] = useState([])
+  const [selectedPlayerId, setSelectedPlayerId] = useState('')
+  const [soldPrice, setSoldPrice] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    async function loadAvail() {
+      const { data } = await supabase.from('players')
+        .select('id, name, code, role')
+        .eq('auction_id', team.auction_id)
+        .eq('status', 'available')
+        .order('name')
+      setAvailablePlayers(data || [])
+    }
+    loadAvail()
+  }, [team.auction_id])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!selectedPlayerId) return showToast('Select a player', 'error')
+    if (!soldPrice || isNaN(soldPrice)) return showToast('Enter a valid price', 'error')
+    
+    setLoading(true)
+    try {
+      const { error } = await supabase.from('players').update({
+        status: 'sold',
+        team_id: team.id,
+        sold_price: parseFloat(soldPrice)
+      }).eq('id', selectedPlayerId)
+      if (error) throw error
+      showToast('Player manually added to team!', 'success')
+      onSaved()
+    } catch(err) {
+      showToast(err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <div className="modal-title">Manual Add Player</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Select Available Player</label>
+            <select 
+              className="form-select" 
+              value={selectedPlayerId} 
+              onChange={e => setSelectedPlayerId(e.target.value)}
+              required
+            >
+              <option value="">-- Choose Player --</option>
+              {availablePlayers.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.role} - {p.code})</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Sold Price (Lakhs)</label>
+            <input 
+              type="number" 
+              step="0.01" 
+              className="form-input" 
+              placeholder="e.g. 5.50" 
+              value={soldPrice} 
+              onChange={e => setSoldPrice(e.target.value)}
+              required 
+            />
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Adding...' : 'Add Player'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

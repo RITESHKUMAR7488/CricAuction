@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
 import { roleColors } from '../constants'
+import PlayerFormModal from '../components/PlayerFormModal'
 
 export default function PlayerDetail() {
   const { id } = useParams()
@@ -12,6 +13,7 @@ export default function PlayerDetail() {
   const [player, setPlayer] = useState(null)
   const [team, setTeam] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   useEffect(() => {
     loadPlayer()
@@ -30,6 +32,17 @@ export default function PlayerDetail() {
     setLoading(false)
   }
 
+  async function handleDelete() {
+    if (!window.confirm('Are you sure you want to delete this player?')) return
+    const { error } = await supabase.from('players').delete().eq('id', player.id)
+    if (error) {
+      showToast('Error deleting player', 'error')
+    } else {
+      showToast('Player deleted', 'success')
+      navigate(-1)
+    }
+  }
+
   if (loading) return (
     <div className="page-content">
       <div className="loading-spinner"><div className="spinner" /></div>
@@ -46,11 +59,24 @@ export default function PlayerDetail() {
   const isBowler = player.role === 'Bowler'
 
   return (
-    <div className="page-content" style={{ paddingTop: 16 }}>
-      {/* Back button */}
-      <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>
-        ← Back
-      </button>
+    <div className="page-content">
+      {/* Back Button & Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ color: 'var(--text-secondary)', padding: '7px 12px' }}>
+          <span style={{ fontSize: 16, lineHeight: 1 }}>←</span>
+          <span>Back</span>
+        </button>
+        {userRole === 'host' && (
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowEditModal(true)} style={{ color: 'var(--blue)', padding: '7px 14px' }}>
+              Edit
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={handleDelete} style={{ color: 'var(--red)', padding: '7px 14px' }}>
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Player hero card */}
       <div style={{
@@ -68,7 +94,7 @@ export default function PlayerDetail() {
           pointerEvents: 'none'
         }} />
 
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
             {player.photo_url ? (
               <img
@@ -140,7 +166,7 @@ export default function PlayerDetail() {
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
           Player Stats
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 16 }}>
           {[
             { label: 'Age', value: player.age || '—' },
             { label: 'Style', value: player.style || '—' },
@@ -173,6 +199,15 @@ export default function PlayerDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {showEditModal && (
+        <PlayerFormModal
+          auctionId={player.auction_id}
+          editPlayer={player}
+          onClose={() => setShowEditModal(false)}
+          onSaved={() => { setShowEditModal(false); loadPlayer() }}
+        />
       )}
     </div>
   )

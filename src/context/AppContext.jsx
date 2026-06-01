@@ -23,6 +23,7 @@ export function AppProvider({ children }) {
   const [userRole, setUserRole] = useState(null)
 
   const [leagueName, setLeagueName] = useState('ELITE LEAGUE')
+  const [leagueLogo, setLeagueLogo] = useState('/cricauction-logo.jpeg')
   const [activeAuction, setActiveAuction] = useState(null)
   const [auctions, setAuctions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -51,13 +52,24 @@ export function AppProvider({ children }) {
 
   // Load the auction list whenever the user changes
   useEffect(() => {
-    if (user) loadAuctions()
+    if (!user) return
+    let mounted = true
+    supabase
+      .from('auctions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (mounted && data) setAuctions(data)
+      })
+    return () => { mounted = false }
   }, [user])
 
   // Derive userRole from activeAuction + user
   useEffect(() => {
     if (activeAuction && user) {
-      setUserRole(activeAuction.host_id === user.id ? 'host' : 'member')
+      const isCreator = activeAuction.host_id === user.id
+      const isCoHost = activeAuction.co_hosts && activeAuction.co_hosts.includes(user.email)
+      setUserRole(isCreator || isCoHost ? 'host' : 'member')
     } else {
       setUserRole(null)
     }
@@ -78,22 +90,25 @@ export function AppProvider({ children }) {
 
   async function loadSettings(currentUser) {
     // Only load league_name from settings (active_auction_id is now per-user in localStorage)
-    const { data } = await supabase.from('settings').select('league_name').single()
-    if (data) setLeagueName(data.league_name || 'ELITE LEAGUE')
+    const { data, error } = await supabase.from('settings').select('league_name').single()
+    if (data && !error) setLeagueName(data.league_name || 'ELITE LEAGUE')
+
+    const storedLogo = localStorage.getItem('league_logo')
+    if (storedLogo) setLeagueLogo(storedLogo)
 
     // Restore the active auction for this specific user from localStorage
     if (currentUser) {
       const storedId = getStoredAuctionId(currentUser.id)
       if (storedId) {
-        const { data: auction } = await supabase
+        const { data: auction, error: auctionError } = await supabase
           .from('auctions')
           .select('*')
           .eq('id', storedId)
           .single()
-        if (auction) {
+        if (auction && !auctionError) {
           setActiveAuction(auction)
         } else {
-          // Auction was deleted — clear the stale reference
+          // Auction was deleted or inaccessible — clear the stale reference
           setStoredAuctionId(currentUser.id, null)
         }
       }
@@ -115,6 +130,11 @@ export function AppProvider({ children }) {
   async function updateLeagueName(name) {
     setLeagueName(name)
     await supabase.from('settings').upsert({ id: 1, league_name: name })
+  }
+
+  async function updateLeagueLogo(url) {
+    setLeagueLogo(url)
+    localStorage.setItem('league_logo', url)
   }
 
   async function createAuction(name) {
@@ -154,14 +174,16 @@ export function AppProvider({ children }) {
 
     await loadAuctions()
 
-    const { data: auction } = await supabase
+    const { data: auction, error: fetchError } = await supabase
       .from('auctions')
       .select('*')
       .eq('id', auctionId)
       .single()
-    if (auction) {
+    if (auction && !fetchError) {
       await switchAuction(auction)
       return auction
+    } else {
+      throw new Error('Could not load the joined auction. Please refresh and try again.')
     }
   }
 
@@ -197,6 +219,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       user, userRole, logout,
       leagueName, updateLeagueName,
+      leagueLogo, updateLeagueLogo,
       activeAuction, auctions,
       createAuction, joinAuction, switchAuction, resetAuction,
       clearActiveAuction,
