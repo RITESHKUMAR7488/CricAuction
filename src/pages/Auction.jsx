@@ -651,7 +651,8 @@ function BiddingModal({
 
   function handleSold() {
     if (!selectedTeam) return showToast('Select a team first by placing a bid', 'error')
-    onSold(player.id, selectedTeam.id, currentBid)
+    const finalPrice = currentBid === 0 ? Number(player.base_price) : currentBid
+    onSold(player.id, selectedTeam.id, finalPrice)
   }
 
   const roleColors = {
