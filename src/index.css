@@ -2010,7 +2010,8 @@ body {
   .sidebar-toggle-btn {
     position: absolute;
     right: -14px;
-    top: 24px;
+    top: 50%;
+    margin-top: -14px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     color: var(--text-secondary);
@@ -2068,6 +2069,7 @@ body {
     margin-bottom: 8px;
     text-align: center;
     width: 100%;
+    position: relative;
   }
 
   .nav-item {
