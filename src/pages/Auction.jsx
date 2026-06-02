@@ -259,7 +259,7 @@ export default function Auction() {
                 {soldPlayers.length} SOLD
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, paddingBottom: 6 }}>
+            <div className="auction-teams-grid">
               {loading ? (
                 <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading teams...</div>
               ) : teams.length === 0 ? (
@@ -364,19 +364,7 @@ export default function Auction() {
       </div>
 
       {/* Footer Sponsors & Ads */}
-      <div style={{ 
-        marginTop: 'auto',
-        padding: '16px 20px', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        background: 'rgba(12,14,20,0.8)',
-        borderTop: '1px solid var(--border)',
-        borderRadius: 16,
-        boxShadow: '0 -4px 20px rgba(0,0,0,0.2)',
-        flexWrap: 'wrap',
-        gap: 16
-      }}>
+      <div className="auction-footer">
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Title Sponsor</div>
@@ -847,15 +835,11 @@ function BiddingModal({
         }}>✕</button>
 
         {/* 2-Column Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40% 60%', width: '100%', height: '100%' }}>
+        <div className="bidding-modal-grid">
           
           {/* LEFT COLUMN: Player Photo & Identity */}
-          <div style={{
-            position: 'relative',
-            background: `radial-gradient(circle at center, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`,
-            borderRight: '1px solid var(--border)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: 32
+          <div className="bidding-player-col" style={{
+            background: `radial-gradient(circle at center, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`
           }}>
             {player.photo_url ? (
               <img src={player.photo_url} alt={player.name} style={{
@@ -884,7 +868,7 @@ function BiddingModal({
           <div style={{ display: 'flex', flexDirection: 'column', padding: '32px 40px', height: '100%', overflowY: 'auto' }}>
             
             {/* Player Details Row */}
-            <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexShrink: 0 }}>
+            <div className="player-details-row">
               <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Batting</div>
                 <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{player.batting_style || '-'}</div>
@@ -932,7 +916,7 @@ function BiddingModal({
             </div>
 
             {/* Teams Bidding Options List */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, flex: 1, overflowY: 'auto', paddingRight: 8 }}>
+            <div className="bidding-teams-grid">
               {teams.map(team => {
                 const spent = getTeamSpent(team)
                 const purseLeft = team.total_purse - spent
