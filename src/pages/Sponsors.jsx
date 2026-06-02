@@ -76,10 +76,18 @@ export default function Sponsors() {
   }
 
   return (
-    <div className="page-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: editMode ? 24 : 0, paddingTop: 'calc(var(--header-height) + 10px)' }}>
+    <div className="page-content" style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%', 
+      paddingLeft: editMode ? 24 : 0, 
+      paddingRight: editMode ? 24 : 0, 
+      paddingBottom: editMode ? 24 : 0, 
+      paddingTop: 'calc(var(--header-height) + 10px)' 
+    }}>
       {/* Header */}
       <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: editMode ? 0 : '10px 24px 0' }}>
-        <h1 className="page-title">SPONSORS</h1>
+        <h1 className="page-title">{editMode ? 'MANAGE SPONSORS' : 'SPONSORS'}</h1>
         {userRole === 'host' && (
           <div style={{ display: 'flex', gap: 12 }}>
             <button
@@ -89,7 +97,7 @@ export default function Sponsors() {
               {editMode ? 'VIEW PRESENTATION' : 'EDIT SPONSORS'}
             </button>
             {editMode && (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} id="add-sponsor-btn">
+              <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} id="add-sponsor-btn" style={{ background: 'var(--blue)', color: 'white' }}>
                 + ADD PICTURE
               </button>
             )}
@@ -104,7 +112,8 @@ export default function Sponsors() {
               <div className="empty-state-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5v8l7 9 7-9V4z"></path><polygon points="12 7.5 13.5 10.5 16.5 11 14.5 13.5 15 16.5 12 15 9 16.5 9.5 13.5 7.5 11 10.5 10.5"></polygon></svg>
               </div>
-              <div className="empty-state-title">No Sponsors Yet</div>
+              <div className="empty-state-title">No Sponsors to Display</div>
+              {userRole === 'host' && <div className="empty-state-desc">Click "EDIT SPONSORS" to add some.</div>}
             </div>
           ) : (
             <>
