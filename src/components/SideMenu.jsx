@@ -7,8 +7,8 @@ import { showToast } from './Toast'
 export default function SideMenu({ onClose }) {
   const { leagueName, updateLeagueName, leagueLogo, updateLeagueLogo, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole, clearActiveAuction } = useApp()
   const [view, setView] = useState('main') // main | rename | updatelogo | newauction | switchauction
-  const [nameInput, setNameInput] = useState(leagueName)
-  const [logoInput, setLogoInput] = useState(leagueLogo)
+  const [nameInput, setNameInput] = useState(activeAuction?.name || leagueName)
+  const [logoInput, setLogoInput] = useState(activeAuction?.logo_url || leagueLogo)
   const [auctionName, setAuctionName] = useState('')
   const [hostEmail, setHostEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -70,7 +70,13 @@ export default function SideMenu({ onClose }) {
     <div className="menu-overlay">
       <div className="menu-backdrop" onClick={onClose} />
       <div className="menu-panel">
-        <div style={{ marginBottom: 16 }}>
+        <button 
+          onClick={onClose} 
+          style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 28, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1 }}
+        >
+          &times;
+        </button>
+        <div style={{ marginBottom: 16, paddingRight: 24 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Active Auction</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
             {activeAuction ? activeAuction.name : 'None selected'}
@@ -105,10 +111,10 @@ export default function SideMenu({ onClose }) {
           <div className="menu-divider" />
           {userRole === 'host' && (
             <>
-              <div className="menu-item" onClick={() => { setView('rename'); setNameInput(leagueName) }} id="menu-rename-league">
-                <span>✏️</span> Rename League
+              <div className="menu-item" onClick={() => { setView('rename'); setNameInput(activeAuction?.name || leagueName) }} id="menu-rename-league">
+                <span>✏️</span> Rename {activeAuction ? 'Auction' : 'League'}
               </div>
-              <div className="menu-item" onClick={() => { setView('updatelogo'); setLogoInput(leagueLogo) }} id="menu-update-logo">
+              <div className="menu-item" onClick={() => { setView('updatelogo'); setLogoInput(activeAuction?.logo_url || leagueLogo) }} id="menu-update-logo">
                 <span>🖼️</span> Update Logo
               </div>
               <div className="menu-item" onClick={() => { setView('addhost'); setHostEmail('') }} id="menu-add-host">
@@ -176,7 +182,7 @@ export default function SideMenu({ onClose }) {
 
         {view === 'rename' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Rename League</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Rename {activeAuction ? 'Auction' : 'League'}</div>
             <input
               className="form-input"
               value={nameInput}
@@ -212,8 +218,8 @@ export default function SideMenu({ onClose }) {
                   } finally { setLoading(false) }
                 }}
               />
-              {leagueLogo && (
-                <img src={leagueLogo} alt="current logo" style={{ width: 80, height: 80, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
+              {(activeAuction?.logo_url || leagueLogo) && (
+                <img src={activeAuction?.logo_url || leagueLogo} alt="current logo" style={{ width: 80, height: 80, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
               )}
               <button className="btn btn-primary btn-sm" onClick={() => fileRef2.current?.click()} disabled={loading}>
                 {loading ? 'Uploading...' : '📷 Choose Photo'}
@@ -311,7 +317,7 @@ export default function SideMenu({ onClose }) {
         )}
 
         <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
-          <img src="/cricauction-logo.jpeg" alt="Powered by BRICX" style={{ width: 80, borderRadius: 12, marginBottom: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} />
+          <img src="/bricx-logo.png" alt="Powered by BRICX" style={{ width: 80, objectFit: 'contain', marginBottom: 12 }} />
         </div>
       </div>
     </div>

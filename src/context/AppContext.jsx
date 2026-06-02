@@ -28,6 +28,7 @@ export function AppProvider({ children }) {
   const [auctions, setAuctions] = useState([])
   const [loading, setLoading] = useState(true)
   const [dbReady, setDbReady] = useState(true)
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
 
   useEffect(() => {
     // Subscribe to ongoing auth changes (login / logout events)
@@ -128,13 +129,29 @@ export function AppProvider({ children }) {
   }
 
   async function updateLeagueName(name) {
-    setLeagueName(name)
-    await supabase.from('settings').upsert({ id: 1, league_name: name })
+    if (activeAuction) {
+      const { error } = await supabase.from('auctions').update({ name }).eq('id', activeAuction.id)
+      if (!error) {
+        setActiveAuction(prev => ({ ...prev, name }))
+        setAuctions(prev => prev.map(a => a.id === activeAuction.id ? { ...a, name } : a))
+      }
+    } else {
+      setLeagueName(name)
+      await supabase.from('settings').upsert({ id: 1, league_name: name })
+    }
   }
 
   async function updateLeagueLogo(url) {
-    setLeagueLogo(url)
-    localStorage.setItem('league_logo', url)
+    if (activeAuction) {
+      const { error } = await supabase.from('auctions').update({ logo_url: url }).eq('id', activeAuction.id)
+      if (!error) {
+        setActiveAuction(prev => ({ ...prev, logo_url: url }))
+        setAuctions(prev => prev.map(a => a.id === activeAuction.id ? { ...a, logo_url: url } : a))
+      }
+    } else {
+      setLeagueLogo(url)
+      localStorage.setItem('league_logo', url)
+    }
   }
 
   async function createAuction(name) {
@@ -224,6 +241,7 @@ export function AppProvider({ children }) {
       createAuction, joinAuction, switchAuction, resetAuction,
       clearActiveAuction,
       loadAuctions, loading, dbReady,
+      isSidebarMinimized, setIsSidebarMinimized,
     }}>
       {children}
     </AppContext.Provider>

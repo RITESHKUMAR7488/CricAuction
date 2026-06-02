@@ -1994,6 +1994,45 @@ body {
     margin: 0;
   }
 
+  .app-container.minimized {
+    --sidebar-width: 80px;
+  }
+
+  .app-container.minimized .nav-item span:last-child {
+    display: none;
+  }
+
+  .app-container.minimized .nav-item {
+    justify-content: center;
+    padding: 12px 0;
+  }
+
+  .sidebar-toggle-btn {
+    position: absolute;
+    right: -14px;
+    top: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    transition: all 0.2s;
+  }
+
+  .sidebar-toggle-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--blue);
+    transform: scale(1.1);
+  }
+
   /* ── Sidebar nav ── */
   .bottom-nav {
     position: relative;
@@ -2127,7 +2166,7 @@ body {
   /* ── Auction two-column ── */
   .auction-desktop-grid {
     display: grid;
-    grid-template-columns: 1fr 420px;
+    grid-template-columns: 1fr 1fr;
     gap: 32px;
     align-items: start;
   }
@@ -2166,7 +2205,7 @@ body {
   .team-grid { grid-template-columns: repeat(4, 1fr); gap: 22px; }
 
   .auction-desktop-grid {
-    grid-template-columns: 1fr 460px;
+    grid-template-columns: 1fr 1fr;
     gap: 40px;
   }
 
@@ -2193,7 +2232,7 @@ body {
   .team-grid { grid-template-columns: repeat(5, 1fr); }
 
   .auction-desktop-grid {
-    grid-template-columns: 1fr 500px;
+    grid-template-columns: 1fr 1fr;
     gap: 48px;
   }
 }

@@ -202,6 +202,7 @@ export default function Teams() {
             <TeamCard
               key={team.id}
               team={team}
+              owners={owners}
               rank={idx + 1}
               getSpent={getTeamSpent}
               onClick={() => navigate(`/teams/${team.id}`)}
@@ -216,6 +217,7 @@ export default function Teams() {
             <TeamListItem
               key={team.id}
               team={team}
+              owners={owners}
               rank={idx + 1}
               getSpent={getTeamSpent}
               onClick={() => navigate(`/teams/${team.id}`)}
@@ -239,7 +241,7 @@ export default function Teams() {
   )
 }
 
-function TeamCard({ team, rank, getSpent, onClick, onEdit, onDelete }) {
+function TeamCard({ team, rank, getSpent, onClick, onEdit, onDelete, owners }) {
   const spent = getSpent(team)
   const purseLeft = team.total_purse - spent
   const playerCount = (team.players || []).filter(p => p.status === 'sold').length
@@ -249,7 +251,7 @@ function TeamCard({ team, rank, getSpent, onClick, onEdit, onDelete }) {
   return (
     <div
       className="team-card"
-      style={{ '--team-color': tc, background: tc + '30', borderColor: tc + '66' }}
+      style={{ '--team-color': tc, background: tc + '22', borderColor: tc + '55' }}
       onClick={onClick}
       id={`team-card-${team.id}`}
     >
@@ -301,7 +303,25 @@ function TeamCard({ team, rank, getSpent, onClick, onEdit, onDelete }) {
           </div>
         )}
         <div style={{ fontWeight: 700, fontSize: 15, fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{team.name}</div>
-        {team.owners && (
+        {team.owner_ids && team.owner_ids.length > 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
+            {team.owner_ids.map(oid => {
+              const o = owners?.find(x => x.id === oid) || { name: 'Unknown' };
+              return (
+                <div key={oid} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {o.photo_url ? (
+                    <img src={o.photo_url} alt={o.name} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                  )}
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{o.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : team.owners && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 }}>
             {team.owners.photo_url ? (
               <img src={team.owners.photo_url} alt={team.owners.name} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />
@@ -346,7 +366,7 @@ function TeamCard({ team, rank, getSpent, onClick, onEdit, onDelete }) {
   )
 }
 
-function TeamListItem({ team, rank, getSpent, onClick, onEdit, onDelete }) {
+function TeamListItem({ team, rank, getSpent, onClick, onEdit, onDelete, owners }) {
   const spent = getSpent(team)
   const purseLeft = team.total_purse - spent
   const playerCount = (team.players || []).filter(p => p.status === 'sold').length
@@ -372,7 +392,11 @@ function TeamListItem({ team, rank, getSpent, onClick, onEdit, onDelete }) {
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 15, fontFamily: 'Rajdhani' }}>{team.name}</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{team.owners?.name || '—'}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {team.owner_ids && team.owner_ids.length > 0 
+            ? team.owner_ids.map(oid => owners?.find(x => x.id === oid)?.name).filter(Boolean).join(', ') 
+            : team.owners?.name || '—'}
+        </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>₹{purseLeft.toFixed(1)}L</div>
@@ -404,7 +428,8 @@ function TeamListItem({ team, rank, getSpent, onClick, onEdit, onDelete }) {
 function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: editTeam?.name || '', 
-    owner_id: editTeam?.owner_id || '', 
+    owner_id: editTeam?.owner_id || '',
+    owner_ids: editTeam?.owner_ids || [], 
     total_purse: editTeam?.total_purse?.toString() || '100', 
     max_players: editTeam?.max_players?.toString() || '10', 
     color: editTeam?.color || '#4a9eff'
@@ -436,7 +461,8 @@ function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
       const payload = {
         auction_id: auctionId,
         name: form.name.trim(),
-        owner_id: form.owner_id || null,
+        owner_id: form.owner_ids.length > 0 ? form.owner_ids[0] : (form.owner_id || null),
+        owner_ids: form.owner_ids,
         total_purse: parseFloat(form.total_purse) || 100,
         max_players: parseInt(form.max_players) || 10,
         color: form.color,
@@ -491,11 +517,25 @@ function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Owner</label>
-            <select className="form-select" value={form.owner_id} onChange={e => setForm(f => ({ ...f, owner_id: e.target.value }))} id="team-owner-select">
-              <option value="">Select Owner</option>
-              {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <label className="form-label">Owners</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {owners.map(o => (
+                <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={form.owner_ids.includes(o.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setForm(f => ({ ...f, owner_ids: [...f.owner_ids, o.id] }));
+                      } else {
+                        setForm(f => ({ ...f, owner_ids: f.owner_ids.filter(id => id !== o.id) }));
+                      }
+                    }}
+                  />
+                  {o.name}
+                </label>
+              ))}
+            </div>
             {owners.length === 0 && (
               <div className="form-hint">No owners registered yet. Add owners in the Sponsors section.</div>
             )}

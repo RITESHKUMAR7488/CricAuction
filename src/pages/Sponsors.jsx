@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase, uploadFile } from '../lib/supabase'
 import { showToast } from '../components/Toast'
+import { useApp } from '../context/AppContext'
 
 const CARD_COLORS = ['var(--gold)', 'var(--blue)', 'var(--purple)', 'var(--green)', 'var(--orange)', 'var(--cyan)']
 
 export default function Sponsors() {
+  const { userRole } = useApp()
   const [sponsors, setSponsors] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const scrollRef = useRef(null)
 
   useEffect(() => {
     loadSponsors()
@@ -55,87 +59,171 @@ export default function Sponsors() {
     }
   }
 
+  function scrollNext() {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: window.innerWidth, behavior: 'smooth' })
+    }
+  }
+
+  function scrollPrev() {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: -window.innerWidth, behavior: 'smooth' })
+    }
+  }
+
+  if (loading) {
+    return <div className="page-content"><div className="loading-spinner"><div className="spinner" /></div></div>
+  }
+
   return (
-    <div className="page-content">
+    <div className="page-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: editMode ? 24 : 0 }}>
       {/* Header */}
-      <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="page-title" style={{ fontSize: 22 }}>SPONSORS</h1>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={() => setShowAddModal(true)}
-          id="add-sponsor-btn"
-          style={{ padding: '8px 16px' }}
-        >
-          + ADD PICTURE
-        </button>
+      <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: editMode ? 0 : '24px 24px 0' }}>
+        <h1 className="page-title">SPONSORS</h1>
+        {userRole === 'host' && (
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              className={`btn btn-sm ${editMode ? 'btn-ghost' : 'btn-primary'}`}
+              onClick={() => setEditMode(!editMode)}
+            >
+              {editMode ? 'VIEW PRESENTATION' : 'EDIT SPONSORS'}
+            </button>
+            {editMode && (
+              <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} id="add-sponsor-btn">
+                + ADD PICTURE
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {loading ? (
-        <div className="loading-spinner"><div className="spinner" /></div>
-      ) : sponsors.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 4H5v8l7 9 7-9V4z"></path><polygon points="12 7.5 13.5 10.5 16.5 11 14.5 13.5 15 16.5 12 15 9 16.5 9.5 13.5 7.5 11 10.5 10.5"></polygon></svg>
-          </div>
-          <div className="empty-state-title">No Sponsors Yet</div>
-          <div className="empty-state-desc">Upload full-screen sponsor pictures to get started.</div>
+      {!editMode ? (
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {sponsors.length === 0 ? (
+            <div className="empty-state" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div className="empty-state-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5v8l7 9 7-9V4z"></path><polygon points="12 7.5 13.5 10.5 16.5 11 14.5 13.5 15 16.5 12 15 9 16.5 9.5 13.5 7.5 11 10.5 10.5"></polygon></svg>
+              </div>
+              <div className="empty-state-title">No Sponsors Yet</div>
+            </div>
+          ) : (
+            <>
+              {/* Fullscreen Slider */}
+              <div 
+                ref={scrollRef}
+                style={{ 
+                  display: 'flex', 
+                  overflowX: 'auto', 
+                  scrollSnapType: 'x mandatory',
+                  height: 'calc(100vh - 140px)',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}
+              >
+                {sponsors.map(sponsor => (
+                  <div key={sponsor.id} style={{ 
+                    minWidth: '100%', 
+                    height: '100%', 
+                    scrollSnapAlign: 'start', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    background: 'var(--bg-secondary)',
+                    padding: 24
+                  }}>
+                    {sponsor.logo_url ? (
+                      <img src={sponsor.logo_url} alt="Sponsor" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)' }}>No Image</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {/* Desktop Nav Buttons */}
+              <button 
+                className="desktop-only"
+                onClick={scrollPrev} 
+                style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 48, height: 48, borderRadius: '50%', cursor: 'pointer', zIndex: 10 }}
+              >
+                ←
+              </button>
+              <button 
+                className="desktop-only"
+                onClick={scrollNext} 
+                style={{ position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 48, height: 48, borderRadius: '50%', cursor: 'pointer', zIndex: 10 }}
+              >
+                →
+              </button>
+              <style>{`
+                .desktop-only { display: none; }
+                @media (min-width: 768px) { .desktop-only { display: block; } }
+                ::-webkit-scrollbar { display: none; }
+              `}</style>
+            </>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {sponsors.map((sponsor, index) => {
-            const color = CARD_COLORS[index % CARD_COLORS.length]
-            return (
-              <div 
-                key={sponsor.id} 
-                style={{ 
-                  background: color + '15', 
-                  borderColor: color + '33', 
-                  borderWidth: 1, 
-                  borderStyle: 'solid', 
-                  borderRadius: 'var(--radius-lg)', 
-                  overflow: 'hidden',
-                  position: 'relative' 
-                }}
-              >
-                {/* Controls Bar */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: `1px solid ${color}33`, background: color + '10' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>ORDER NO:</span>
-                    <input 
-                      type="number" 
-                      defaultValue={sponsor.deal_value || 0}
-                      onBlur={(e) => updateOrder(sponsor.id, e.target.value)}
-                      style={{ 
-                        width: 60, background: 'var(--bg-secondary)', border: '1px solid var(--border)', 
-                        color: 'white', padding: '4px 8px', borderRadius: 6, fontSize: 14, textAlign: 'center' 
-                      }}
-                    />
-                  </div>
-                  
-                  <button
-                    onClick={() => deleteSponsor(sponsor.id)}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600 }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    REMOVE
-                  </button>
-                </div>
-
-                {/* Image */}
-                <div style={{ width: '100%', display: 'block', background: 'var(--bg-secondary)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', overflow: 'hidden' }}>
-                  {sponsor.logo_url ? (
-                    <img 
-                      src={sponsor.logo_url} 
-                      alt={`Sponsor ${sponsor.deal_value}`} 
-                      style={{ width: '100%', height: 'auto', maxHeight: 320, objectFit: 'contain', display: 'block' }} 
-                    />
-                  ) : (
-                    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No image uploaded</div>
-                  )}
-                </div>
+          {sponsors.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5v8l7 9 7-9V4z"></path><polygon points="12 7.5 13.5 10.5 16.5 11 14.5 13.5 15 16.5 12 15 9 16.5 9.5 13.5 7.5 11 10.5 10.5"></polygon></svg>
               </div>
-            )
-          })}
+              <div className="empty-state-title">No Sponsors Yet</div>
+              <div className="empty-state-desc">Upload full-screen sponsor pictures to get started.</div>
+            </div>
+          ) : (
+            sponsors.map((sponsor, index) => {
+              const color = CARD_COLORS[index % CARD_COLORS.length]
+              return (
+                <div 
+                  key={sponsor.id} 
+                  style={{ 
+                    background: color + '15', 
+                    borderColor: color + '33', 
+                    borderWidth: 1, 
+                    borderStyle: 'solid', 
+                    borderRadius: 'var(--radius-lg)', 
+                    overflow: 'hidden',
+                    position: 'relative' 
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: `1px solid ${color}33`, background: color + '10' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>ORDER NO:</span>
+                      <input 
+                        type="number" 
+                        defaultValue={sponsor.deal_value || 0}
+                        onBlur={(e) => updateOrder(sponsor.id, e.target.value)}
+                        style={{ 
+                          width: 60, background: 'var(--bg-secondary)', border: '1px solid var(--border)', 
+                          color: 'white', padding: '4px 8px', borderRadius: 6, fontSize: 14, textAlign: 'center' 
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => deleteSponsor(sponsor.id)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600 }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      REMOVE
+                    </button>
+                  </div>
+                  <div style={{ width: '100%', display: 'block', background: 'var(--bg-secondary)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', overflow: 'hidden' }}>
+                    {sponsor.logo_url ? (
+                      <img 
+                        src={sponsor.logo_url} 
+                        alt={`Sponsor ${sponsor.deal_value}`} 
+                        style={{ width: '100%', height: 'auto', maxHeight: 320, objectFit: 'contain', display: 'block' }} 
+                      />
+                    ) : (
+                      <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No image uploaded</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 
@@ -172,7 +260,7 @@ function AddPictureModal({ onClose, onSaved, nextOrder }) {
       const { error } = await supabase.from('sponsors').insert({
         name: `Sponsor Image ${order}`,
         logo_url,
-        deal_value: parseInt(order) || 1, // Using deal_value to store the order
+        deal_value: parseInt(order) || 1,
         category: 'Custom'
       })
       

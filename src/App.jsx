@@ -37,7 +37,7 @@ function AppLayout({ children }) {
 }
 
 function AppInner() {
-  const { loading, dbReady, user } = useApp()
+  const { loading, dbReady, user, isSidebarMinimized } = useApp()
 
   if (loading) {
     return (
@@ -90,7 +90,7 @@ function AppInner() {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app-container${isSidebarMinimized ? ' minimized' : ''}`}>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />

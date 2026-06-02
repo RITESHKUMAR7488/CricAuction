@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
 import { exportAuctionPDF, exportAuctionCSV } from '../lib/exportUtils'
+import { uploadFile } from '../lib/supabase'
 
 export default function Auction() {
   const { activeAuction, leagueName, userRole } = useApp()
@@ -19,6 +20,9 @@ export default function Auction() {
   const [liveSyncChannel, setLiveSyncChannel] = useState(null)
   const [spinning, setSpinning] = useState(false)
   const [isLive, setIsLive] = useState(false)
+  const [audienceSpinTarget, setAudienceSpinTarget] = useState(null)
+  const [settings, setSettings] = useState(null)
+  const [showFooterModal, setShowFooterModal] = useState(false)
 
   useEffect(() => {
     if (!activeAuction) return
@@ -39,28 +43,8 @@ export default function Auction() {
 
     // Audience listeners
     channel.on('broadcast', { event: 'spin_start' }, (payload) => {
-      if (userRole !== 'host') setSpinning(true)
-    })
-
-    channel.on('broadcast', { event: 'spin_result' }, (payload) => {
       if (userRole !== 'host') {
-        setSpinning(false)
-        if (payload.payload?.playerCode) {
-          // Find the player and open the bidding view for audience
-          const code = payload.payload.playerCode
-          // We use a functional update on players to find correctly even if state hasn't settled
-          setPlayers(prev => {
-            const player = prev.find(p => p.code === code)
-            if (player) {
-              setSelectedPlayer(player)
-              setCurrentBid(0)
-              setSelectedTeam(null)
-              setBidHistory([{ amount: 0, label: 'Base Price' }])
-              setShowBidding(true)
-            }
-            return prev
-          })
-        }
+        setAudienceSpinTarget(payload.payload?.targetCode)
       }
     })
 
@@ -69,8 +53,6 @@ export default function Auction() {
         const { playerId, currentBid: cb, selectedTeamId, bidHistory: bh } = payload.payload
         setCurrentBid(cb)
         setBidHistory(bh || [])
-        // We need to set selectedTeam object later when teams are loaded.
-        // We will just use an effect below to sync it.
       }
     })
 
@@ -88,12 +70,14 @@ export default function Auction() {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: teamsData }, { data: playersData }] = await Promise.all([
+    const [{ data: teamsData }, { data: playersData }, { data: settingsData }] = await Promise.all([
       supabase.from('teams').select('*, players(id, status, sold_price), owners(name)').eq('auction_id', activeAuction.id).order('created_at'),
       supabase.from('players').select('*').eq('auction_id', activeAuction.id).order('code'),
+      supabase.from('settings').select('*').single()
     ])
     setTeams(teamsData || [])
     setPlayers(playersData || [])
+    setSettings(settingsData || {})
     setLoading(false)
   }
 
@@ -113,7 +97,7 @@ export default function Auction() {
     const player = players.find(p => p.code === playerCode)
     if (player) {
       setSelectedPlayer(player)
-      setCurrentBid(0)  // Always start from 0.0L — 0.0 means base price bid
+      setCurrentBid(0)
       setSelectedTeam(null)
       setBidHistory([{ amount: 0, label: 'Base Price (0.0L = Pick at Base)' }])
       setShowBidding(true)
@@ -148,10 +132,9 @@ export default function Auction() {
     }
   }, [currentBid, selectedTeam, bidHistory, showBidding, selectedPlayer, liveSyncChannel, userRole])
 
-  // Effect to sync audience selectedTeam from ID (since broadcast gives ID)
+  // Effect to sync audience selectedTeam from ID
   useEffect(() => {
     if (userRole !== 'host' && showBidding) {
-      // Find the player and team from the last broadcast
       if (bidHistory.length > 0) {
         const lastBid = bidHistory[bidHistory.length - 1]
         if (lastBid.teamId) {
@@ -163,9 +146,6 @@ export default function Auction() {
       }
     }
   }, [bidHistory, teams, userRole, showBidding])
-
-  // Effect to catch audience up if they join late (handled by postgres_changes partially, but for bidding we rely on broadcasts)
-  // To keep it simple, audience will see the modal when the next bid happens or when wheel spins.
 
   async function handleSold(playerId, teamId, soldPrice) {
     try {
@@ -206,17 +186,6 @@ export default function Auction() {
     }
   }
 
-  const [exportingPDF, setExportingPDF] = useState(false)
-  const [exportingCSV, setExportingCSV] = useState(false)
-
-  async function handleExportPDF() {
-    if (!activeAuction) return
-    setExportingPDF(true)
-    try { await exportAuctionPDF(activeAuction.id, leagueName) }
-    catch(e) { showToast('Export error: ' + e.message, 'error') }
-    finally { setExportingPDF(false) }
-  }
-
   if (!activeAuction) {
     return (
       <div className="page-content">
@@ -233,7 +202,7 @@ export default function Auction() {
   }
 
   return (
-    <div className="page-content">
+    <div className="page-content" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div className="page-header" style={{ marginBottom: 20 }}>
         <h1 className="page-title">AUCTION</h1>
@@ -253,7 +222,7 @@ export default function Auction() {
                 {soldPlayers.length} SOLD
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, paddingBottom: 6 }}>
               {loading ? (
                 <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading teams...</div>
               ) : teams.length === 0 ? (
@@ -273,8 +242,7 @@ export default function Auction() {
                         border: `1px solid ${team.color}55`,
                         borderRadius: 12,
                         padding: '16px 12px 14px',
-                        minWidth: 105,
-                        flexShrink: 0,
+                        width: '100%',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         display: 'flex',
@@ -320,38 +288,26 @@ export default function Auction() {
         {/* RIGHT COLUMN — Spin Wheel */}
         <div>
           {availablePlayers.length > 0 ? (
-      <div className="auction-wheel-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-        {/* Universe starfield background */}
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-          backgroundImage: [
-            'radial-gradient(1.5px 1.5px at 12% 20%, rgba(255,255,255,0.5), transparent)',
-            'radial-gradient(1.5px 1.5px at 85% 15%, rgba(255,255,255,0.4), transparent)',
-            'radial-gradient(1px 1px at 40% 75%, rgba(255,255,255,0.35), transparent)',
-            'radial-gradient(1.5px 1.5px at 70% 50%, rgba(255,255,255,0.45), transparent)',
-            'radial-gradient(1px 1px at 25% 90%, rgba(255,255,255,0.3), transparent)',
-            'radial-gradient(1.5px 1.5px at 90% 80%, rgba(255,255,255,0.4), transparent)',
-            'radial-gradient(1px 1px at 55% 35%, rgba(255,255,255,0.3), transparent)',
-            'radial-gradient(1px 1px at 10% 60%, rgba(255,255,255,0.25), transparent)',
-            'radial-gradient(1.5px 1.5px at 60% 5%, rgba(245,166,35,0.3), transparent)',
-            'radial-gradient(1px 1px at 30% 45%, rgba(74,158,255,0.2), transparent)',
-          ].join(',')
-        }} />
-        <SpinWheel
-          players={availablePlayers}
-          spinning={spinning}
-          setSpinning={setSpinning}
-          onResult={handleSpinResult}
-          disabled={userRole !== 'host'}
-          liveSyncChannel={liveSyncChannel}
-          userRole={userRole}
-        />
-      </div>
+            <div className="auction-wheel-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+              <SpinWheel
+                players={availablePlayers}
+                spinning={spinning}
+                setSpinning={setSpinning}
+                onResult={handleSpinResult}
+                disabled={userRole !== 'host'}
+                liveSyncChannel={liveSyncChannel}
+                userRole={userRole}
+                audienceSpinTarget={audienceSpinTarget}
+              />
+            </div>
           ) : (
-            <div className="empty-state" style={{ minHeight: 300 }}>
-              <div style={{ fontSize: 64 }}>🎉</div>
-              <div className="empty-state-title">Auction Complete!</div>
-              <div className="empty-state-desc">
+            <div className="empty-state" style={{ minHeight: 300, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ fontSize: 64, position: 'relative', zIndex: 2 }}>🎉</div>
+              {players.length > 0 && unsoldPlayers.length === 0 && <Firecrackers />}
+              <div className="empty-state-title" style={{ position: 'relative', zIndex: 2 }}>
+                {players.length > 0 && unsoldPlayers.length === 0 ? 'RCT 2026 Auction completed' : 'Auction Complete!'}
+              </div>
+              <div className="empty-state-desc" style={{ position: 'relative', zIndex: 2 }}>
                 {players.length === 0
                   ? 'Register players in the Players section to start the auction.'
                   : 'All players have been auctioned.'}
@@ -369,6 +325,50 @@ export default function Auction() {
           )}
         </div>
       </div>
+
+      {/* Footer Sponsors & Ads */}
+      <div style={{ 
+        marginTop: 'auto',
+        padding: '16px 20px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        background: 'rgba(12,14,20,0.8)',
+        borderTop: '1px solid var(--border)',
+        borderRadius: 16,
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.2)',
+        flexWrap: 'wrap',
+        gap: 16
+      }}>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Title Sponsor</div>
+            {settings?.title_logo ? (
+               <img src={settings.title_logo} alt="Title Sponsor" style={{ height: 40, objectFit: 'contain' }} />
+            ) : <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1 }}>[TITLE SPONSOR]</div>}
+          </div>
+          <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Co-Title Sponsor</div>
+            {settings?.co_title_logo ? (
+               <img src={settings.co_title_logo} alt="Co-Title Sponsor" style={{ height: 32, objectFit: 'contain' }} />
+            ) : <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1 }}>[CO-TITLE SPONSOR]</div>}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+           {userRole === 'host' && (
+             <button onClick={() => setShowFooterModal(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }} title="Manage Footer Logos">⚙️</button>
+           )}
+           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Powered By</div>
+           {settings?.bricx_logo ? (
+             <img src={settings.bricx_logo} alt="BricX" style={{ height: 32, objectFit: 'contain' }} />
+           ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 32, objectFit: 'contain' }} />}
+        </div>
+      </div>
+
+      {showFooterModal && (
+        <FooterSettingsModal onClose={() => setShowFooterModal(false)} settings={settings} onSaved={() => { setShowFooterModal(false); loadData(); }} />
+      )}
 
       {/* Bidding Modal */}
       {showBidding && selectedPlayer && (
@@ -393,13 +393,11 @@ export default function Auction() {
 }
 
 // ===================== SPIN WHEEL =====================
-const WHEEL_COLORS = [
-  '#4a9eff', '#9b59b6', '#f5a623', '#27ae60',
-  '#e74c3c', '#00d4aa', '#e67e22', '#1abc9c',
-  '#3498db', '#8e44ad', '#16a085', '#c0392b',
-]
+// Alternating black & gold — matching the reference luxury design
+const SEG_BLACK = '#0a0a0a'
+const SEG_GOLD  = '#c8950a'
 
-function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyncChannel, userRole }) {
+function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyncChannel, userRole, audienceSpinTarget }) {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
   const angleRef = useRef(0)
@@ -416,87 +414,184 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
     const ctx = canvas.getContext('2d')
     const cx = canvas.width / 2
     const cy = canvas.height / 2
-    const r = cx - 8
+    const R = cx - 18 // main wheel radius
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Outer glow ring
-    const grd = ctx.createRadialGradient(cx, cy, r - 10, cx, cy, r + 4)
-    grd.addColorStop(0, 'rgba(245,166,35,0.6)')
-    grd.addColorStop(1, 'rgba(245,166,35,0)')
+    // ── Outer ring: thick gold border ──────────────────────────
+    // Outermost glow
     ctx.beginPath()
-    ctx.arc(cx, cy, r + 2, 0, 2 * Math.PI)
-    ctx.strokeStyle = grd
+    ctx.arc(cx, cy, R + 14, 0, 2 * Math.PI)
+    ctx.strokeStyle = 'rgba(200,149,10,0.25)'
     ctx.lineWidth = 8
     ctx.stroke()
+    // Bright gold band
+    ctx.beginPath()
+    ctx.arc(cx, cy, R + 9, 0, 2 * Math.PI)
+    const outerGrad = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R)
+    outerGrad.addColorStop(0, '#ffe066')
+    outerGrad.addColorStop(0.4, '#c8950a')
+    outerGrad.addColorStop(0.7, '#f5d060')
+    outerGrad.addColorStop(1, '#a07008')
+    ctx.strokeStyle = outerGrad
+    ctx.lineWidth = 12
+    ctx.stroke()
+    // Inner shadow band
+    ctx.beginPath()
+    ctx.arc(cx, cy, R + 2, 0, 2 * Math.PI)
+    ctx.strokeStyle = '#5a3c00'
+    ctx.lineWidth = 3
+    ctx.stroke()
 
-    // Draw segments
+    // ── Draw segments ──────────────────────────────────────────
     for (let i = 0; i < numSegments; i++) {
       const startAngle = angle + i * segAngle
       const endAngle = startAngle + segAngle
+      const isGold = i % 2 === 0
 
+      // Segment fill
       ctx.beginPath()
       ctx.moveTo(cx, cy)
-      ctx.arc(cx, cy, r, startAngle, endAngle)
+      ctx.arc(cx, cy, R, startAngle, endAngle)
       ctx.closePath()
-      ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length]
+      if (isGold) {
+        // Gold segment: brushed-metal gradient
+        const gx1 = cx + Math.cos(startAngle + segAngle / 2) * R * 0.3
+        const gy1 = cy + Math.sin(startAngle + segAngle / 2) * R * 0.3
+        const gx2 = cx + Math.cos(startAngle + segAngle / 2) * R
+        const gy2 = cy + Math.sin(startAngle + segAngle / 2) * R
+        const segGrad = ctx.createLinearGradient(gx1, gy1, gx2, gy2)
+        segGrad.addColorStop(0, '#e0b030')
+        segGrad.addColorStop(0.4, '#c8950a')
+        segGrad.addColorStop(0.8, '#b07a06')
+        segGrad.addColorStop(1, '#d4a017')
+        ctx.fillStyle = segGrad
+      } else {
+        // Black segment
+        ctx.fillStyle = SEG_BLACK
+      }
       ctx.fill()
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)'
-      ctx.lineWidth = 1.5
+
+      // Divider line
+      ctx.strokeStyle = 'rgba(180,130,0,0.6)'
+      ctx.lineWidth = 1.2
       ctx.stroke()
 
-      // Segment text
+      // ── Number near the outer edge ──
       ctx.save()
       ctx.translate(cx, cy)
       ctx.rotate(startAngle + segAngle / 2)
-      ctx.fillStyle = 'rgba(255,255,255,0.95)'
-      ctx.font = `bold ${numSegments > 10 ? 11 : 13}px Inter`
+      const numR = R * 0.90
+      const fontSize = numSegments > 12 ? 10 : 12
+      ctx.fillStyle = isGold ? '#1a0d00' : '#c8950a'
+      ctx.font = `bold ${fontSize}px Inter`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.shadowColor = 'rgba(0,0,0,0.5)'
-      ctx.shadowBlur = 3
-      // Draw name instead of code, truncated if too long
-      const displayName = wheelPlayers[i].name.length > 12 ? wheelPlayers[i].name.substring(0, 10) + '..' : wheelPlayers[i].name
-      ctx.fillText(displayName, r * 0.65, 0)
+      ctx.fillText(String(i + 1), numR, 0)
+      ctx.restore()
+
+      // ── Player name ──
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(startAngle + segAngle / 2)
+      const nameR = R * 0.60
+      const nameFontSize = numSegments > 12 ? 11 : 13
+      ctx.font = `bold ${nameFontSize}px Inter`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = isGold ? '#0d0600' : '#d4a017'
+      const displayName = wheelPlayers[i].name.length > 10 ? wheelPlayers[i].name.substring(0, 9) + '.' : wheelPlayers[i].name
+      ctx.fillText(displayName.toUpperCase(), nameR, 0)
       ctx.restore()
     }
 
-    // Center circle
+    // ── Gold dot accents on the outer ring ─────────────────────
+    const numDots = numSegments * 2
+    for (let d = 0; d < numDots; d++) {
+      const dotAngle = angle + (d / numDots) * 2 * Math.PI
+      const dotR = R + 6
+      const dx = cx + Math.cos(dotAngle) * dotR
+      const dy = cy + Math.sin(dotAngle) * dotR
+      ctx.beginPath()
+      ctx.arc(dx, dy, 2.5, 0, 2 * Math.PI)
+      ctx.fillStyle = '#ffe066'
+      ctx.fill()
+    }
+
+    // ── Center Hub ─────────────────────────────────────────────
+    const hubR = numSegments > 12 ? 52 : 60
+
+    // Outer hub glow
     ctx.beginPath()
-    ctx.arc(cx, cy, 54, 0, 2 * Math.PI)
-    const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 54)
-    centerGrad.addColorStop(0, '#111420')
-    centerGrad.addColorStop(0.7, '#161b26')
-    centerGrad.addColorStop(1, '#0e1118')
-    ctx.fillStyle = centerGrad
+    ctx.arc(cx, cy, hubR + 8, 0, 2 * Math.PI)
+    ctx.strokeStyle = 'rgba(200,149,10,0.3)'
+    ctx.lineWidth = 6
+    ctx.stroke()
+
+    // Hub fill – dark radial
+    ctx.beginPath()
+    ctx.arc(cx, cy, hubR, 0, 2 * Math.PI)
+    const hubGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, hubR)
+    hubGrad.addColorStop(0, '#1a1206')
+    hubGrad.addColorStop(0.6, '#0d0a04')
+    hubGrad.addColorStop(1, '#050300')
+    ctx.fillStyle = hubGrad
     ctx.fill()
-    ctx.strokeStyle = 'rgba(245,166,35,0.8)'
+
+    // Hub outer gold ring
+    ctx.beginPath()
+    ctx.arc(cx, cy, hubR, 0, 2 * Math.PI)
+    const hubRingGrad = ctx.createLinearGradient(cx - hubR, cy, cx + hubR, cy)
+    hubRingGrad.addColorStop(0, '#ffe066')
+    hubRingGrad.addColorStop(0.5, '#c8950a')
+    hubRingGrad.addColorStop(1, '#ffe066')
+    ctx.strokeStyle = hubRingGrad
     ctx.lineWidth = 4
     ctx.stroke()
-    
-    // Inner center glowing ring
+
+    // Hub inner decorative ring (small dots)
+    const innerDots = 16
+    for (let d = 0; d < innerDots; d++) {
+      const da = (d / innerDots) * 2 * Math.PI
+      const ddx = cx + Math.cos(da) * (hubR - 8)
+      const ddy = cy + Math.sin(da) * (hubR - 8)
+      ctx.beginPath()
+      ctx.arc(ddx, ddy, 1.5, 0, 2 * Math.PI)
+      ctx.fillStyle = 'rgba(255,210,80,0.7)'
+      ctx.fill()
+    }
+
+    // Hub second inner ring line
     ctx.beginPath()
-    ctx.arc(cx, cy, 46, 0, 2 * Math.PI)
-    ctx.strokeStyle = 'rgba(74,158,255,0.3)'
+    ctx.arc(cx, cy, hubR - 14, 0, 2 * Math.PI)
+    ctx.strokeStyle = 'rgba(200,149,10,0.4)'
     ctx.lineWidth = 1
     ctx.stroke()
 
     // Center text
-    ctx.fillStyle = spinning ? 'var(--gold)' : '#fff'
-    ctx.font = 'bold 11px Inter'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(spinning ? 'SPINNING' : 'TAP TO', cx, cy - 7)
-    ctx.fillStyle = 'var(--gold)'
-    ctx.font = 'bold 15px Rajdhani'
-    ctx.fillText('SPIN', cx, cy + 9)
+    if (spinning) {
+      ctx.fillStyle = '#f5d060'
+      ctx.font = 'bold 13px Inter'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('SPINNING...', cx, cy)
+    } else {
+      ctx.fillStyle = '#c8c0a0'
+      ctx.font = `bold ${numSegments > 12 ? 10 : 11}px Inter`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('TAP', cx, cy - 14)
+      ctx.fillText('TO', cx, cy - 1)
+      ctx.fillStyle = '#f5d060'
+      ctx.font = `bold ${numSegments > 12 ? 14 : 16}px Inter`
+      ctx.fillText('SPIN', cx, cy + 14)
+    }
   }, [wheelPlayers, numSegments, segAngle, spinning])
 
   useEffect(() => {
     drawWheel(angleRef.current)
   }, [drawWheel])
 
-  // Cancel any in-progress animation when the wheel unmounts to prevent RAF leak
   useEffect(() => {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current)
@@ -505,20 +600,35 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
 
   function spin() {
     if (spinning || wheelPlayers.length === 0 || disabled) return
+    const targetIdx = Math.floor(Math.random() * wheelPlayers.length)
+    const targetCode = wheelPlayers[targetIdx].code
+
+    if (liveSyncChannel && userRole === 'host') {
+      liveSyncChannel.send({ type: 'broadcast', event: 'spin_start', payload: { targetCode } })
+    }
+
+    executeSpinAnimation(targetCode)
+  }
+
+  useEffect(() => {
+    if (audienceSpinTarget && !spinning && disabled) {
+      executeSpinAnimation(audienceSpinTarget)
+    }
+  }, [audienceSpinTarget])
+
+  function executeSpinAnimation(targetCode) {
     setSpinning(true)
     setResultCode(null)
 
-    if (liveSyncChannel && userRole === 'host') {
-      liveSyncChannel.send({ type: 'broadcast', event: 'spin_start' })
-    }
+    const targetIdx = wheelPlayers.findIndex(p => p.code === targetCode)
+    const validIdx = targetIdx >= 0 ? targetIdx : 0
 
-    const targetIdx = Math.floor(Math.random() * wheelPlayers.length)
-    const fullRotations = (8 + Math.random() * 8) * 2 * Math.PI
+    const fullRotations = (8 + Math.random() * 4) * 2 * Math.PI
     // Land on center of target segment
-    const targetAngle = -(targetIdx * segAngle + segAngle / 2) + (Math.PI / 2 * 3)
+    const targetAngle = -(validIdx * segAngle + segAngle / 2) + (Math.PI / 2 * 3)
     const finalAngle = (Math.round(fullRotations / (2 * Math.PI)) * 2 * Math.PI) + targetAngle
 
-    const duration = 4000 + Math.random() * 2000
+    const duration = 5000
     const startAngle = angleRef.current
     const startTime = performance.now()
 
@@ -539,16 +649,8 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
       } else {
         angleRef.current = finalAngle
         setSpinning(false)
-        const code = wheelPlayers[targetIdx].code
-        setResultCode(code)
-        // Broadcast result to audience so their phones open bidding view
-        if (liveSyncChannel && userRole === 'host') {
-          liveSyncChannel.send({
-            type: 'broadcast', event: 'spin_result',
-            payload: { playerCode: code }
-          })
-        }
-        setTimeout(() => onResult(code), 600)
+        setResultCode(targetCode)
+        setTimeout(() => onResult(targetCode), 600)
       }
     }
 
@@ -556,35 +658,35 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '0 20px' }}>
       {/* Draw Label */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14,
-        color: 'var(--gold)', fontFamily: 'Rajdhani', fontSize: 14, fontWeight: 700, letterSpacing: 2
+        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20,
+        color: 'var(--gold)', fontFamily: 'Rajdhani', fontSize: 16, fontWeight: 700, letterSpacing: 2
       }}>
         <span>→</span> NEXT PLAYER DRAW <span>←</span>
       </div>
 
       {/* Pointer + Canvas */}
-      <div style={{ position: 'relative', width: '100%', maxWidth: 380, display: 'flex', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', width: '100%', maxWidth: 540, display: 'flex', justifyContent: 'center' }}>
         <div style={{
-          position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)',
           width: 0, height: 0, zIndex: 10,
-          borderLeft: '12px solid transparent',
-          borderRight: '12px solid transparent',
-          borderTop: '28px solid var(--gold)',
+          borderLeft: '16px solid transparent',
+          borderRight: '16px solid transparent',
+          borderTop: '36px solid var(--gold)',
           filter: 'drop-shadow(0 0 10px rgba(245,166,35,0.9))'
         }} />
         <canvas
           ref={canvasRef}
-          width={380}
-          height={380}
+          width={540}
+          height={540}
           style={{ 
             cursor: spinning || disabled ? 'default' : 'pointer', 
             width: '100%',
             height: 'auto',
-            maxWidth: 380,
-            filter: 'drop-shadow(0 0 28px rgba(74,158,255,0.25)) drop-shadow(0 0 14px rgba(245,166,35,0.15))', 
+            maxWidth: 540,
+            filter: 'drop-shadow(0 0 28px rgba(74,158,255,0.1)) drop-shadow(0 0 14px rgba(245,166,35,0.1))', 
             opacity: disabled ? 0.7 : 1,
             borderRadius: '50%'
           }}
@@ -594,20 +696,20 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
 
       {resultCode && (
         <div style={{
-          marginTop: 14,
+          marginTop: 20,
           background: 'rgba(245,166,35,0.1)',
           border: '1px solid rgba(245,166,35,0.3)',
           borderRadius: 12,
-          padding: '10px 20px',
+          padding: '12px 24px',
           textAlign: 'center',
           animation: 'fadeIn 0.4s ease'
         }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>Selected</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>{resultCode}</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>{resultCode}</div>
         </div>
       )}
 
-      <div style={{ marginTop: 10, color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
+      <div style={{ marginTop: 16, color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
         {wheelPlayers.length} players available{wheelPlayers.length < (players?.length || 0) ? ' — showing first 16' : ''}
       </div>
     </div>
@@ -619,6 +721,7 @@ function BiddingModal({
   player, teams, onSold, onUnsold, onClose, getTeamSpent, userRole,
   currentBid, setCurrentBid, selectedTeam, setSelectedTeam, bidHistory, setBidHistory 
 }) {
+  const [showSoldAnimation, setShowSoldAnimation] = useState(false)
   const BID_INCREMENTS = [0, 0.10, 0.20, 0.30]
 
   function placeBid(team, increment) {
@@ -649,10 +752,13 @@ function BiddingModal({
     }
   }
 
-  function handleSold() {
+  function executeSold() {
     if (!selectedTeam) return showToast('Select a team first by placing a bid', 'error')
-    const finalPrice = currentBid === 0 ? Number(player.base_price) : currentBid
-    onSold(player.id, selectedTeam.id, finalPrice)
+    setShowSoldAnimation(true)
+    setTimeout(() => {
+      const finalPrice = currentBid === 0 ? Number(player.base_price) : currentBid
+      onSold(player.id, selectedTeam.id, finalPrice)
+    }, 2500)
   }
 
   const roleColors = {
@@ -663,187 +769,285 @@ function BiddingModal({
   return (
     <div className="modal-overlay" style={{ 
       padding: 0, 
-      background: 'rgba(12,14,20,0.98)', 
+      background: 'rgba(12,14,20,0.95)', 
       backdropFilter: 'blur(32px)',
       WebkitBackdropFilter: 'blur(32px)',
       display: 'flex', 
-      flexDirection: 'column',
-      overflowY: 'auto'
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
     }}>
-      <div style={{ margin: 'auto 0', width: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Top right close button (acts as cancel) */}
-      <button 
-        onClick={onClose} 
-        style={{ 
-          position: 'absolute', top: 16, right: 16, 
-          width: 36, height: 36, 
-          background: 'rgba(255,255,255,0.08)', 
-          border: '1px solid rgba(255,255,255,0.1)', 
-          borderRadius: '50%', 
-          color: '#fff', fontSize: 18, 
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', zIndex: 100, transition: 'all 0.2s'
-        }}
-      >
-        ✕
-      </button>
-
-      {/* Top half: Player Photo & Details */}
+      {/* Container */}
       <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px 20px 16px',
-        background: `radial-gradient(circle at top, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`
-      }}>
-        {player.photo_url ? (
-          <img src={player.photo_url} alt={player.name} style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${roleColors[player.role] || 'var(--blue)'}55`, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', marginBottom: 16 }} />
-        ) : (
-          <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'var(--bg-secondary)', border: `3px solid ${roleColors[player.role] || 'var(--blue)'}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>👤</div>
-        )}
-        <div style={{ fontSize: 12, color: 'var(--blue)', fontWeight: 800, letterSpacing: 2, marginBottom: 4, textTransform: 'uppercase' }}>{player.code}</div>
-        <div style={{ fontFamily: 'Rajdhani', fontSize: 32, fontWeight: 900, lineHeight: 1.1, textAlign: 'center', textTransform: 'uppercase', marginBottom: 4 }}>{player.name}</div>
-        <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 14, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>{player.role}</div>
-      </div>
-
-      {/* Middle: Current Bid */}
-      <div style={{ padding: '0 24px', textAlign: 'center', marginBottom: 20 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>Current Bid</div>
-        <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', lineHeight: 1, filter: 'drop-shadow(0 4px 16px rgba(245,166,35,0.4))' }}>
-          ₹ {currentBid} L
-        </div>
-        {selectedTeam && (
-          <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: `${selectedTeam.color}22`, border: `1px solid ${selectedTeam.color}66`,
-            borderRadius: 12, padding: '6px 16px'
-          }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: selectedTeam.color, boxShadow: `0 0 10px ${selectedTeam.color}` }} />
-            <span style={{ fontWeight: 800, fontSize: 14, color: selectedTeam.color, letterSpacing: 0.5 }}>{selectedTeam.name.toUpperCase()}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom half: Teams, Increments, Actions */}
-      <div style={{
+        width: '95vw', maxWidth: 1200, height: '85vh', maxHeight: 800,
         background: 'var(--bg-card)',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        padding: '24px 20px 32px',
-        boxShadow: '0 -12px 40px rgba(0,0,0,0.6)',
-        display: 'flex', flexDirection: 'column', gap: 16
+        borderRadius: 24, border: '1px solid var(--border)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+        position: 'relative',
+        display: 'flex', overflow: 'hidden'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1 }}>
-            Select Team & Increment
-          </div>
-          {userRole === 'host' && (
-            <button 
-              onClick={undoBid} 
-              disabled={bidHistory.length <= 1}
-              style={{ 
-                background: bidHistory.length <= 1 ? 'transparent' : 'rgba(255,255,255,0.05)', 
-                border: '1px solid var(--border)', 
-                color: bidHistory.length <= 1 ? 'var(--text-muted)' : 'var(--text-primary)', 
-                padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                cursor: bidHistory.length <= 1 ? 'default' : 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              ↩ Undo
-            </button>
-          )}
-        </div>
+        {/* Close Button */}
+        <button onClick={onClose} style={{
+          position: 'absolute', top: 20, right: 20, zIndex: 100,
+          width: 40, height: 40, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+          color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', transition: 'all 0.2s'
+        }}>✕</button>
 
-        {/* Teams List */}
-        <div style={{ maxHeight: '25vh', overflowY: 'auto', paddingRight: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {teams.map(team => {
-            const spent = getTeamSpent(team)
-            const purseLeft = team.total_purse - spent
-            const playerCount = (team.players || []).filter(p => p.status === 'sold').length
-            const isFull = playerCount >= team.max_players
-            const canBid = !isFull && purseLeft > currentBid
-
-            return (
-              <div key={team.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  background: selectedTeam?.id === team.id ? `${team.color}15` : 'rgba(255,255,255,0.02)',
-                  borderRadius: 12,
-                  border: selectedTeam?.id === team.id ? `1px solid ${team.color}55` : '1px solid var(--border)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color }} />
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{team.name}</span>
-                    {isFull && <span style={{ fontSize: 10, color: 'var(--red)', fontWeight: 800 }}>FULL</span>}
-                  </div>
-                  <div style={{ fontSize: 13, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', fontWeight: 800 }}>
-                    ₹{purseLeft.toFixed(1)}L left
-                  </div>
-                </div>
-                {canBid && (
-                  <div style={{ display: 'flex', gap: 6, paddingLeft: 12, flexWrap: 'wrap' }}>
-                    {BID_INCREMENTS.map(inc => (
-                      (Math.round((currentBid + inc) * 100) / 100) <= purseLeft && (
-                        <button
-                          key={inc}
-                          onClick={() => placeBid(team, inc)}
-                          disabled={userRole !== 'host'}
-                          style={{
-                            padding: '6px 10px', borderRadius: 8,
-                            background: userRole === 'host' ? `${team.color}22` : 'transparent', 
-                            border: `1px solid ${userRole === 'host' ? `${team.color}44` : 'var(--border)'}`,
-                            color: userRole === 'host' ? team.color : 'var(--text-muted)', 
-                            fontSize: 12, fontWeight: 800, 
-                            cursor: userRole === 'host' ? 'pointer' : 'default',
-                            transition: 'all 0.15s'
-                          }}
-                        >
-                          +{inc}L
-                        </button>
-                      )
-                    ))}
-                  </div>
-                )}
-                {!canBid && !isFull && (
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', paddingLeft: 12, fontWeight: 600 }}>Insufficient purse for next bid</div>
-                )}
+        {/* 2-Column Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '40% 60%', width: '100%', height: '100%' }}>
+          
+          {/* LEFT COLUMN: Player Photo & Identity */}
+          <div style={{
+            position: 'relative',
+            background: `radial-gradient(circle at center, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`,
+            borderRight: '1px solid var(--border)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: 32
+          }}>
+            {player.photo_url ? (
+              <img src={player.photo_url} alt={player.name} style={{
+                width: '85%', maxHeight: '65%', objectFit: 'contain',
+                filter: `drop-shadow(0 20px 40px ${roleColors[player.role] || 'var(--blue)'}33)`
+              }} />
+            ) : (
+              <div style={{
+                width: 260, height: 260, borderRadius: '50%',
+                background: 'var(--bg-secondary)', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 100,
+                boxShadow: `0 20px 40px ${roleColors[player.role] || 'var(--blue)'}22`
+              }}>👤</div>
+            )}
+            <div style={{ marginTop: 32, textAlign: 'center' }}>
+              <div style={{ fontFamily: 'Rajdhani', fontSize: 44, fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.1, textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                {player.name}
               </div>
-            )
-          })}
-        </div>
-
-        {/* Bid History Optional (can be omitted for cleaner full screen, or kept small) */}
-        {bidHistory.length > 1 && (
-          <div style={{ maxHeight: 60, overflowY: 'auto', marginTop: 4 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Recent Bids</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {bidHistory.slice(-3).reverse().map((h, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)' }}>
-                  <span style={{ color: h.teamColor, fontWeight: 600 }}>{h.teamName || h.label}</span>
-                  <span style={{ fontWeight: 800 }}>₹{h.amount}L</span>
-                </div>
-              ))}
+              <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 18, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginTop: 8 }}>
+                {player.role} • {player.code}
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Fixed Bottom Action buttons */}
-        <div style={{ display: 'flex', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-          <button className="btn btn-ghost" style={{ flex: 1, padding: '16px 0', fontSize: 14, fontWeight: 800, letterSpacing: 1 }} onClick={() => onUnsold(player.id)}>
-            UNSOLD
-          </button>
-          <button
-            className="btn btn-gold"
-            style={{ flex: 2, padding: '16px 0', fontSize: 20, fontFamily: 'Rajdhani', fontWeight: 900, letterSpacing: 1.5 }}
-            onClick={handleSold}
-            disabled={!selectedTeam}
-          >
-            🔨 SOLD! ₹{currentBid}L
-          </button>
+          {/* RIGHT COLUMN: Details & Bidding Area */}
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '32px 40px', height: '100%', overflowY: 'auto' }}>
+            
+            {/* Player Details Row */}
+            <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexShrink: 0 }}>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Batting</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{player.batting_style || '-'}</div>
+              </div>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Bowling</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{player.bowling_style || '-'}</div>
+              </div>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Age / Phone</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{player.age || '-'} / {player.phone || '-'}</div>
+              </div>
+            </div>
+
+            {/* Current Bid Display */}
+            <div style={{
+              textAlign: 'center', marginBottom: 24, padding: '24px',
+              background: 'rgba(245,166,35,0.05)', borderRadius: 20, border: '1px solid rgba(245,166,35,0.2)',
+              flexShrink: 0
+            }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>Current Bid</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <span style={{ fontSize: 48, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>₹</span>
+                <input 
+                  type="number" 
+                  value={currentBid} 
+                  onChange={(e) => setCurrentBid(Number(e.target.value))} 
+                  disabled={userRole !== 'host'}
+                  style={{ 
+                    fontSize: 64, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', 
+                    background: 'transparent', border: 'none', width: '3.5ch', textAlign: 'center', 
+                    outline: 'none', textShadow: '0 4px 24px rgba(245,166,35,0.4)', padding: 0
+                  }} 
+                />
+                <span style={{ fontSize: 48, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>L</span>
+              </div>
+              {selectedTeam ? (
+                <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 10, background: `${selectedTeam.color}22`, border: `1px solid ${selectedTeam.color}66`, borderRadius: 16, padding: '8px 24px' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: selectedTeam.color, boxShadow: `0 0 10px ${selectedTeam.color}` }} />
+                  <span style={{ fontWeight: 800, fontSize: 18, color: selectedTeam.color, letterSpacing: 1 }}>{selectedTeam.name.toUpperCase()}</span>
+                </div>
+              ) : (
+                <div style={{ marginTop: 16, fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>No bids yet (Base: {player.base_price}L)</div>
+              )}
+            </div>
+
+            {/* Teams Bidding Options List */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, flex: 1, overflowY: 'auto', paddingRight: 8 }}>
+              {teams.map(team => {
+                const spent = getTeamSpent(team)
+                const purseLeft = team.total_purse - spent
+                const playerCount = (team.players || []).filter(p => p.status === 'sold').length
+                const isFull = playerCount >= team.max_players
+                const canBid = !isFull && purseLeft > currentBid
+
+                return (
+                  <div key={team.id} style={{
+                    background: selectedTeam?.id === team.id ? `${team.color}15` : 'rgba(255,255,255,0.02)',
+                    border: selectedTeam?.id === team.id ? `2px solid ${team.color}88` : '1px solid var(--border)',
+                    borderRadius: 12, padding: '14px', display: 'flex', flexDirection: 'column', gap: 10,
+                    transition: 'all 0.2s'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                         <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color }} />
+                         <span style={{ fontWeight: 800, fontSize: 15 }}>{team.name}</span>
+                       </div>
+                       <div style={{ fontSize: 13, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', fontWeight: 800 }}>
+                         ₹{purseLeft.toFixed(1)}L
+                       </div>
+                    </div>
+                    {canBid ? (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {BID_INCREMENTS.map(inc => (
+                          (Math.round((currentBid + inc) * 100) / 100) <= purseLeft && (
+                            <button key={inc} onClick={() => placeBid(team, inc)} disabled={userRole !== 'host'} style={{
+                              flex: 1, padding: '8px 0', borderRadius: 8, background: userRole === 'host' ? `${team.color}22` : 'transparent',
+                              border: `1px solid ${userRole === 'host' ? `${team.color}44` : 'var(--border)'}`, color: userRole === 'host' ? team.color : 'var(--text-muted)',
+                              fontSize: 13, fontWeight: 800, cursor: userRole === 'host' ? 'pointer' : 'default', transition: 'all 0.15s'
+                            }}>+{inc}L</button>
+                          )
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 700, padding: '6px 0', letterSpacing: 1 }}>
+                        {isFull ? 'SQUAD FULL' : 'INSUFFICIENT PURSE'}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Bottom Actions */}
+            <div style={{ display: 'flex', gap: 16, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+               {userRole === 'host' && (
+                  <button onClick={undoBid} disabled={bidHistory.length <= 1} className="btn btn-ghost" style={{ padding: '0 24px', fontSize: 14 }}>↩ Undo</button>
+               )}
+               <button className="btn btn-ghost" style={{ flex: 1, padding: '16px 0', fontSize: 16, fontWeight: 800, letterSpacing: 1 }} onClick={() => onUnsold(player.id)}>UNSOLD</button>
+               <button className="btn btn-gold" style={{ flex: 2, padding: '16px 0', fontSize: 24, fontFamily: 'Rajdhani', fontWeight: 900, letterSpacing: 1 }} onClick={executeSold} disabled={!selectedTeam}>
+                 🔨 SOLD! ₹{currentBid}L
+               </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* SOLD ANIMATION OVERLAY */}
+      {showSoldAnimation && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999, background: '#000',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            position: 'absolute', width: '200vw', height: '200vw',
+            background: 'radial-gradient(circle, rgba(245,166,35,0.4) 0%, transparent 60%)',
+            animation: 'burst 1.5s ease-out forwards'
+          }} />
+          <div style={{
+            fontFamily: 'Rajdhani', fontSize: '15vw', fontWeight: 900, color: 'var(--gold)',
+            textTransform: 'uppercase', letterSpacing: '1vw',
+            textShadow: '0 0 40px rgba(245,166,35,0.8), 0 0 80px rgba(245,166,35,0.4)',
+            animation: 'zoomIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+            zIndex: 10
+          }}>
+            SOLD
+          </div>
+          <style>{`
+            @keyframes burst { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+            @keyframes zoomIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+          `}</style>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Firecrackers() {
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 1 }}>
+      {[...Array(20)].map((_, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          left: `${Math.random() * 100}%`,
+          top: `${50 + Math.random() * 50}%`,
+          width: 6, height: 6, borderRadius: '50%',
+          background: ['#f5a623', '#4a9eff', '#2ecc71', '#e74c3c', '#9b59b6'][Math.floor(Math.random() * 5)],
+          boxShadow: '0 0 10px currentColor',
+          animation: `firecracker 1.5s ease-out infinite`,
+          animationDelay: `${Math.random() * 2}s`
+        }} />
+      ))}
+      <style>{`
+        @keyframes firecracker {
+          0% { transform: translateY(0) scale(1); opacity: 1; }
+          50% { opacity: 1; }
+          100% { transform: translateY(-200px) scale(0); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+function FooterSettingsModal({ onClose, settings, onSaved }) {
+  const [loading, setLoading] = useState(false)
+  const [files, setFiles] = useState({ title_logo: null, co_title_logo: null, bricx_logo: null })
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const updates = {}
+      if (files.title_logo) updates.title_logo = await uploadFile(files.title_logo, 'sponsors')
+      if (files.co_title_logo) updates.co_title_logo = await uploadFile(files.co_title_logo, 'sponsors')
+      if (files.bricx_logo) updates.bricx_logo = await uploadFile(files.bricx_logo, 'sponsors')
+      
+      const { error } = await supabase.from('settings').update(updates).eq('id', 1)
+      if (error) throw error
+      showToast('Logos updated', 'success')
+      onSaved()
+    } catch(err) {
+      showToast('Error: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <div className="modal-title">Footer Logos</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {['title_logo', 'co_title_logo', 'bricx_logo'].map(key => (
+            <div key={key} className="form-group">
+              <label className="form-label">{key.replace('_', ' ').toUpperCase()}</label>
+              <input type="file" accept="image/*" onChange={e => setFiles(f => ({ ...f, [key]: e.target.files[0] }))} className="form-input" style={{ padding: 8 }} />
+              {settings?.[key] && !files[key] && <img src={settings[key]} alt="current" style={{ height: 40, marginTop: 8, objectFit: 'contain' }} />}
+              {settings?.[key] && (
+                <button type="button" onClick={async () => {
+                   await supabase.from('settings').update({ [key]: null }).eq('id', 1);
+                   onSaved();
+                }} style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, marginTop: 4 }}>Remove current</button>
+              )}
+            </div>
+          ))}
+          <div className="form-actions">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving...' : 'Upload & Save'}</button>
+          </div>
+        </form>
       </div>
     </div>
   )

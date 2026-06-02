@@ -55,7 +55,7 @@ const navItems = [
 ]
 
 export default function Navbar() {
-  const { leagueName, activeAuction } = useApp()
+  const { leagueName, leagueLogo, activeAuction, isSidebarMinimized, setIsSidebarMinimized } = useApp()
   const [sponsors, setSponsors] = useState([])
 
   useEffect(() => {
@@ -65,13 +65,16 @@ export default function Navbar() {
   const titleSponsor = sponsors.find(s => s.category === 'Title Sponsor')
   const coSponsor = sponsors.find(s => s.category === 'Co-Sponsor')
 
+  const currentLogo = activeAuction?.logo_url || leagueLogo
+  const currentName = activeAuction?.name || leagueName
+
   return (
     <>
       {/* Sponsor strip — hidden on desktop sidebar layout */}
       <div className="sponsor-strip-bar">
         {/* Left: BricX Logo */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-          <div style={{ fontSize: 15, fontWeight: 900, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1.5 }}>BricX</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0, flexShrink: 0 }}>
+          <img src="/bricx-logo.png" alt="BricX" style={{ height: 24, objectFit: 'contain' }} />
         </div>
 
         {/* Center: Title Sponsor */}
@@ -100,10 +103,26 @@ export default function Navbar() {
       <nav className="bottom-nav">
         {/* Sidebar logo — only visible on desktop */}
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon" style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-            <img src="/cricauction-logo.jpeg" alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
-          </div>
-          <div className="sidebar-logo-name" style={{ fontSize: 13 }}>{activeAuction ? activeAuction.name : (leagueName || 'ELITE LEAGUE')}</div>
+          {!isSidebarMinimized ? (
+            <>
+              <div className="sidebar-logo-icon" style={{ width: 80, height: 80, borderRadius: 12, marginBottom: 8, display: 'flex', alignItems: 'center', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+                <img src={currentLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div className="sidebar-logo-name" style={{ fontSize: 16, fontWeight: 800 }}>{currentName}</div>
+            </>
+          ) : (
+            <div className="sidebar-logo-icon" style={{ width: 44, height: 44, borderRadius: 8, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+              <img src={currentLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          )}
+          
+          <button 
+            className="sidebar-toggle-btn"
+            onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
+            title={isSidebarMinimized ? "Expand" : "Minimize"}
+          >
+            {isSidebarMinimized ? '▶' : '◀'}
+          </button>
         </div>
 
         {navItems.map(({ to, label, Icon, exact }) => (
@@ -114,6 +133,7 @@ export default function Navbar() {
             className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
             style={({ isActive }) => ({ color: isActive ? 'var(--blue)' : '#ffffff' })}
             id={`nav-${label.toLowerCase()}`}
+            title={isSidebarMinimized ? label : ''}
           >
             {({ isActive }) => (
               <>

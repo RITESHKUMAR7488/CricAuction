@@ -15,6 +15,12 @@ create table if not exists settings (
   id integer primary key default 1,
   league_name text not null default 'ELITE LEAGUE',
   active_auction_id uuid,
+  title_logo text,
+  co_title_logo text,
+  title_logo_mobile text,
+  co_title_logo_mobile text,
+  bricx_logo text,
+  bricx_logo_mobile text,
   constraint single_row check (id = 1)
 );
 insert into settings (id, league_name) values (1, 'ELITE LEAGUE') on conflict (id) do nothing;
@@ -69,6 +75,7 @@ create table if not exists teams (
   auction_id uuid references auctions(id) on delete cascade,
   name text not null,
   owner_id uuid references owners(id),
+  owner_ids jsonb default '[]'::jsonb,
   total_purse numeric not null default 100,
   max_players integer not null default 10,
   logo_url text,
