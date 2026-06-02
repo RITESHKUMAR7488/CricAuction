@@ -76,9 +76,9 @@ export default function Sponsors() {
   }
 
   return (
-    <div className="page-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: editMode ? 24 : 0 }}>
+    <div className="page-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: editMode ? 24 : 0, paddingTop: 'calc(var(--header-height) + 10px)' }}>
       {/* Header */}
-      <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: editMode ? 0 : '24px 24px 0' }}>
+      <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: editMode ? 0 : '10px 24px 0' }}>
         <h1 className="page-title">SPONSORS</h1>
         {userRole === 'host' && (
           <div style={{ display: 'flex', gap: 12 }}>
