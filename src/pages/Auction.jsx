@@ -23,6 +23,22 @@ export default function Auction() {
   const [audienceSpinTarget, setAudienceSpinTarget] = useState(null)
   const [settings, setSettings] = useState(null)
   const [showFooterModal, setShowFooterModal] = useState(false)
+  const [audienceSoldTrigger, setAudienceSoldTrigger] = useState(false)
+
+  const playersRef = useRef(players)
+  useEffect(() => {
+    playersRef.current = players
+  }, [players])
+
+  const handleCloseBidding = useCallback(() => {
+    setShowBidding(false)
+    setSelectedPlayer(null)
+    setAudienceSoldTrigger(false)
+
+    if (liveSyncChannel && userRole === 'host') {
+      liveSyncChannel.send({ type: 'broadcast', event: 'bidding_closed', payload: {} })
+    }
+  }, [liveSyncChannel, userRole])
 
   useEffect(() => {
     if (!activeAuction) return
@@ -53,6 +69,29 @@ export default function Auction() {
         const { playerId, currentBid: cb, selectedTeamId, bidHistory: bh } = payload.payload
         setCurrentBid(cb)
         setBidHistory(bh || [])
+
+        setSelectedPlayer(prev => {
+          if (!prev || prev.id !== playerId) {
+            const p = playersRef.current.find(p => p.id === playerId)
+            return p || prev
+          }
+          return prev
+        })
+        setShowBidding(true)
+      }
+    })
+
+    channel.on('broadcast', { event: 'bidding_sold_animation' }, () => {
+      if (userRole !== 'host') {
+        setAudienceSoldTrigger(true)
+      }
+    })
+
+    channel.on('broadcast', { event: 'bidding_closed' }, () => {
+      if (userRole !== 'host') {
+        setShowBidding(false)
+        setSelectedPlayer(null)
+        setAudienceSoldTrigger(false)
       }
     })
 
@@ -153,8 +192,7 @@ export default function Auction() {
         status: 'sold', team_id: teamId, sold_price: soldPrice
       }).eq('id', playerId)
       showToast('Player sold! 🔨', 'success')
-      setShowBidding(false)
-      setSelectedPlayer(null)
+      handleCloseBidding()
       loadData()
     } catch(e) {
       showToast('Error: ' + e.message, 'error')
@@ -166,8 +204,7 @@ export default function Auction() {
       const { error } = await supabase.from('players').update({ status: 'unsold' }).eq('id', playerId)
       if (error) throw error
       showToast('Player marked unsold', 'info')
-      setShowBidding(false)
-      setSelectedPlayer(null)
+      handleCloseBidding()
       loadData()
     } catch (e) {
       showToast('Error: ' + e.message, 'error')
@@ -377,7 +414,7 @@ export default function Auction() {
           teams={teams}
           onSold={handleSold}
           onUnsold={handleUnsold}
-          onClose={() => { setShowBidding(false); setSelectedPlayer(null) }}
+          onClose={handleCloseBidding}
           getTeamSpent={getTeamSpent}
           userRole={userRole}
           currentBid={currentBid}
@@ -386,6 +423,12 @@ export default function Auction() {
           setSelectedTeam={setSelectedTeam}
           bidHistory={bidHistory}
           setBidHistory={setBidHistory}
+          audienceSoldTrigger={audienceSoldTrigger}
+          onSoldAnimationStart={() => {
+            if (liveSyncChannel && userRole === 'host') {
+              liveSyncChannel.send({ type: 'broadcast', event: 'bidding_sold_animation', payload: {} })
+            }
+          }}
         />
       )}
     </div>
@@ -719,9 +762,16 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
 // ===================== BIDDING MODAL =====================
 function BiddingModal({ 
   player, teams, onSold, onUnsold, onClose, getTeamSpent, userRole,
-  currentBid, setCurrentBid, selectedTeam, setSelectedTeam, bidHistory, setBidHistory 
+  currentBid, setCurrentBid, selectedTeam, setSelectedTeam, bidHistory, setBidHistory,
+  audienceSoldTrigger, onSoldAnimationStart
 }) {
   const [showSoldAnimation, setShowSoldAnimation] = useState(false)
+
+  useEffect(() => {
+    if (audienceSoldTrigger) {
+      setShowSoldAnimation(true)
+    }
+  }, [audienceSoldTrigger])
   const BID_INCREMENTS = [0, 0.10, 0.20, 0.30]
 
   function placeBid(team, increment) {
@@ -755,6 +805,7 @@ function BiddingModal({
   function executeSold() {
     if (!selectedTeam) return showToast('Select a team first by placing a bid', 'error')
     setShowSoldAnimation(true)
+    if (onSoldAnimationStart) onSoldAnimationStart()
     setTimeout(() => {
       const finalPrice = currentBid === 0 ? Number(player.base_price) : currentBid
       onSold(player.id, selectedTeam.id, finalPrice)
