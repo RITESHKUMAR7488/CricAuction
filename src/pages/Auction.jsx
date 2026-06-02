@@ -342,7 +342,7 @@ export default function Auction() {
               <div style={{ fontSize: 64, position: 'relative', zIndex: 2 }}>🎉</div>
               {players.length > 0 && unsoldPlayers.length === 0 && <Firecrackers />}
               <div className="empty-state-title" style={{ position: 'relative', zIndex: 2 }}>
-                {players.length > 0 && unsoldPlayers.length === 0 ? 'RCT 2026 Auction completed' : 'Auction Complete!'}
+                {players.length > 0 && unsoldPlayers.length === 0 ? `${activeAuction?.name || 'Auction'} completed` : 'Auction Complete!'}
               </div>
               <div className="empty-state-desc" style={{ position: 'relative', zIndex: 2 }}>
                 {players.length === 0
