@@ -2249,8 +2249,12 @@ body {
 }
 
 .bidding-teams-col {
-  order: -1;
+  order: 2;
   border-bottom: 1px solid var(--border);
+}
+
+.bidding-center-col {
+  order: 3;
 }
 
 @media (min-width: 900px) {
@@ -2262,8 +2266,10 @@ body {
   .bidding-teams-col, .bidding-player-col, .bidding-center-col {
     height: 100%;
   }
-  .bidding-teams-col {
+  .bidding-teams-col, .bidding-center-col {
     order: unset;
+  }
+  .bidding-teams-col {
     border-bottom: none;
   }
 }
