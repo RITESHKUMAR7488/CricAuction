@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext'
 const CARD_COLORS = ['var(--gold)', 'var(--blue)', 'var(--purple)', 'var(--green)', 'var(--orange)', 'var(--cyan)']
 
 export default function Sponsors() {
-  const { userRole } = useApp()
+  const { userRole, activeAuction } = useApp()
   const [sponsors, setSponsors] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -14,14 +14,15 @@ export default function Sponsors() {
   const scrollRef = useRef(null)
 
   useEffect(() => {
-    loadSponsors()
-  }, [])
+    if (activeAuction) loadSponsors()
+  }, [activeAuction])
 
   async function loadSponsors() {
     setLoading(true)
     const { data } = await supabase
       .from('sponsors')
       .select('*')
+      .eq('auction_id', activeAuction.id)
       .order('deal_value', { ascending: true })
     setSponsors(data || [])
     setLoading(false)
@@ -145,7 +146,7 @@ export default function Sponsors() {
                     padding: 24
                   }}>
                     {sponsor.logo_url ? (
-                      <img src={sponsor.logo_url} alt="Sponsor" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                      <img src={sponsor.logo_url} alt="Sponsor" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     ) : (
                       <div style={{ color: 'var(--text-muted)' }}>No Image</div>
                     )}
@@ -242,6 +243,7 @@ export default function Sponsors() {
 
       {showAddModal && (
         <AddPictureModal
+          auctionId={activeAuction.id}
           onClose={() => setShowAddModal(false)}
           onSaved={() => { setShowAddModal(false); loadSponsors() }}
           nextOrder={sponsors.length > 0 ? Math.max(...sponsors.map(s => s.deal_value || 0)) + 1 : 1}
@@ -251,7 +253,7 @@ export default function Sponsors() {
   )
 }
 
-function AddPictureModal({ onClose, onSaved, nextOrder }) {
+function AddPictureModal({ auctionId, onClose, onSaved, nextOrder }) {
   const [photo, setPhoto] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [order, setOrder] = useState(nextOrder.toString())
@@ -271,6 +273,7 @@ function AddPictureModal({ onClose, onSaved, nextOrder }) {
       const logo_url = await uploadFile(photo, 'sponsors')
       
       const { error } = await supabase.from('sponsors').insert({
+        auction_id: auctionId,
         name: `Sponsor Image ${order}`,
         logo_url,
         deal_value: parseInt(order) || 1,

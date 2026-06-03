@@ -135,10 +135,11 @@ export default function Auction() {
   function handleSpinResult(playerCode) {
     const player = players.find(p => p.code === playerCode)
     if (player) {
+      const basePrice = Number(player.base_price) || 0
       setSelectedPlayer(player)
-      setCurrentBid(0)
+      setCurrentBid(basePrice)
       setSelectedTeam(null)
-      setBidHistory([{ amount: 0, label: 'Base Price (0.0L = Pick at Base)' }])
+      setBidHistory([{ amount: basePrice, label: `Base Price (${basePrice}L)` }])
       setShowBidding(true)
 
       if (liveSyncChannel && userRole === 'host') {
@@ -147,9 +148,9 @@ export default function Auction() {
           payload: {
             playerId: player.id,
             playerCode: player.code,
-            currentBid: 0,
+            currentBid: basePrice,
             selectedTeamId: null,
-            bidHistory: [{ amount: 0, label: 'Base Price' }]
+            bidHistory: [{ amount: basePrice, label: `Base Price (${basePrice}L)` }]
           }
         })
       }
@@ -364,30 +365,38 @@ export default function Auction() {
       </div>
 
       {/* Footer Sponsors & Ads */}
-      <div className="auction-footer">
-        <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Title Sponsor</div>
-            {settings?.title_logo ? (
-               <img src={settings.title_logo} alt="Title Sponsor" style={{ height: 40, objectFit: 'contain' }} />
-            ) : <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1 }}>[TITLE SPONSOR]</div>}
-          </div>
-          <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Co-Title Sponsor</div>
-            {settings?.co_title_logo ? (
-               <img src={settings.co_title_logo} alt="Co-Title Sponsor" style={{ height: 32, objectFit: 'contain' }} />
-            ) : <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1 }}>[CO-TITLE SPONSOR]</div>}
-          </div>
+      <div className="auction-footer" style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40,
+        padding: '40px 0 24px 0', borderTop: '1px solid var(--border)', flexWrap: 'wrap',
+        position: 'relative', flexShrink: 0, marginTop: 'auto'
+      }}>
+        {userRole === 'host' && (
+          <button onClick={() => setShowFooterModal(true)} style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }} title="Manage Footer Logos">⚙️</button>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Title Sponsor</div>
+          {settings?.title_logo ? (
+             <img src={settings.title_logo} alt="Title Sponsor" style={{ height: 40, objectFit: 'contain' }} />
+          ) : <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1 }}>[TITLE SPONSOR]</div>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-           {userRole === 'host' && (
-             <button onClick={() => setShowFooterModal(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }} title="Manage Footer Logos">⚙️</button>
-           )}
-           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Powered By</div>
-           {settings?.bricx_logo ? (
-             <img src={settings.bricx_logo} alt="BricX" style={{ height: 32, objectFit: 'contain' }} />
-           ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 32, objectFit: 'contain' }} />}
+
+        <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Co-Title Sponsor</div>
+          {settings?.co_title_logo ? (
+             <img src={settings.co_title_logo} alt="Co-Title Sponsor" style={{ height: 40, objectFit: 'contain' }} />
+          ) : <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1 }}>[CO-TITLE SPONSOR]</div>}
+        </div>
+
+        <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Powered By</div>
+          {settings?.bricx_logo ? (
+            <img src={settings.bricx_logo} alt="BricX" style={{ height: 40, objectFit: 'contain' }} />
+          ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 40, objectFit: 'contain' }} />}
         </div>
       </div>
 
@@ -531,7 +540,8 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = isGold ? '#0d0600' : '#d4a017'
-      const displayName = wheelPlayers[i].name.length > 10 ? wheelPlayers[i].name.substring(0, 9) + '.' : wheelPlayers[i].name
+      const firstName = wheelPlayers[i].name.split(' ')[0]
+      const displayName = firstName.length > 12 ? firstName.substring(0, 11) + '.' : firstName
       ctx.fillText(displayName.toUpperCase(), nameR, 0)
       ctx.restore()
     }
@@ -763,7 +773,8 @@ function BiddingModal({
   const BID_INCREMENTS = [0, 0.10, 0.20, 0.30]
 
   function placeBid(team, increment) {
-    const newBid = Math.round((currentBid + increment) * 100) / 100
+    const currentNumericBid = Number(currentBid) || 0
+    const newBid = Math.round((currentNumericBid + increment) * 100) / 100
     const teamSpent = Math.round(getTeamSpent(team) * 100) / 100
     const purseLeft = Math.round((team.total_purse - teamSpent) * 100) / 100
     if (newBid > purseLeft) {
@@ -795,7 +806,7 @@ function BiddingModal({
     setShowSoldAnimation(true)
     if (onSoldAnimationStart) onSoldAnimationStart()
     setTimeout(() => {
-      const finalPrice = currentBid === 0 ? Number(player.base_price) : currentBid
+      const finalPrice = Number(currentBid) || Number(player.base_price)
       onSold(player.id, selectedTeam.id, finalPrice)
     }, 2500)
   }
@@ -823,156 +834,188 @@ function BiddingModal({
         borderRadius: 24, border: '1px solid var(--border)',
         boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
         position: 'relative',
-        display: 'flex', overflow: 'hidden'
+        display: 'flex', flexDirection: 'column', overflow: 'hidden'
       }}>
-        {/* Close Button */}
-        <button onClick={onClose} style={{
-          position: 'absolute', top: 20, right: 20, zIndex: 100,
-          width: 40, height: 40, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
-          color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', transition: 'all 0.2s'
-        }}>✕</button>
+        {/* Top Right Controls */}
+        <div style={{ 
+          position: 'absolute', top: 16, right: 16, zIndex: 100, display: 'flex', gap: 8,
+          background: 'rgba(15, 18, 25, 0.95)', padding: '6px', borderRadius: '30px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {userRole === 'host' && (
+             <button onClick={undoBid} disabled={bidHistory.length <= 1} style={{
+               width: 36, height: 36, borderRadius: '50%',
+               background: 'transparent', border: 'none',
+               color: bidHistory.length <= 1 ? 'rgba(255,255,255,0.2)' : '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+               cursor: bidHistory.length <= 1 ? 'default' : 'pointer', transition: 'all 0.2s',
+             }} title="Undo Last Bid">↩</button>
+          )}
+          <button onClick={onClose} style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'transparent', border: 'none',
+            color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'all 0.2s'
+          }}>✕</button>
+        </div>
 
-        {/* 2-Column Grid */}
-        <div className="bidding-modal-grid">
+        {/* 3-Column Grid */}
+        <div className="bidding-modal-grid" style={{ flex: 1, minHeight: 0 }}>
           
           {/* LEFT COLUMN: Player Photo & Identity */}
           <div className="bidding-player-col" style={{
-            background: `radial-gradient(circle at center, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`
+            background: `radial-gradient(circle at center, ${roleColors[player.role] || 'var(--blue)'}22 0%, transparent 80%)`,
+            justifyContent: 'flex-start', padding: '32px 20px', overflowY: 'auto'
           }}>
-            {player.photo_url ? (
-              <img src={player.photo_url} alt={player.name} style={{
-                width: '85%', maxHeight: '65%', objectFit: 'contain',
-                filter: `drop-shadow(0 20px 40px ${roleColors[player.role] || 'var(--blue)'}33)`
-              }} />
-            ) : (
-              <div style={{
-                width: 260, height: 260, borderRadius: '50%',
-                background: 'var(--bg-secondary)', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 100,
-                boxShadow: `0 20px 40px ${roleColors[player.role] || 'var(--blue)'}22`
-              }}>👤</div>
-            )}
-            <div style={{ marginTop: 32, textAlign: 'center' }}>
-              <div style={{ fontFamily: 'Rajdhani', fontSize: 44, fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.1, textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-                {player.name}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              {player.photo_url ? (
+                <img src={player.photo_url} alt={player.name} style={{
+                  width: 140, height: 140, objectFit: 'cover', borderRadius: '50%', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}88`,
+                  filter: `drop-shadow(0 10px 20px ${roleColors[player.role] || 'var(--blue)'}33)`
+                }} />
+              ) : (
+                <div style={{
+                  width: 140, height: 140, borderRadius: '50%',
+                  background: 'var(--bg-secondary)', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64,
+                  boxShadow: `0 10px 20px ${roleColors[player.role] || 'var(--blue)'}22`
+                }}>👤</div>
+              )}
+              <div style={{ marginTop: 20, textAlign: 'center' }}>
+                <div style={{ fontFamily: 'Rajdhani', fontSize: 24, fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.1, textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                  {player.name}
+                </div>
+                <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginTop: 6 }}>
+                  {player.role} • {player.code}
+                </div>
               </div>
-              <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 18, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginTop: 8 }}>
-                {player.role} • {player.code}
+            </div>
+
+            <div style={{ width: '100%', marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Batting</div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{player.batting_style || '-'}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Bowling</div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{player.bowling_style || '-'}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Age / Phone</div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{player.age || '-'} / {player.phone || '-'}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Base Price</div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, color: 'var(--gold)' }}>₹ {player.base_price} L</div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Details & Bidding Area */}
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '32px 40px', height: '100%', overflowY: 'auto' }}>
-            
-            {/* Player Details Row */}
-            <div className="player-details-row">
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Batting</div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{player.batting_style || '-'}</div>
-              </div>
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Bowling</div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{player.bowling_style || '-'}</div>
-              </div>
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Age / Phone</div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{player.age || '-'} / {player.phone || '-'}</div>
-              </div>
-            </div>
-
-            {/* Current Bid Display */}
+          {/* CENTER COLUMN: Bid Circle */}
+          <div className="bidding-center-col" style={{ display: 'flex', flexDirection: 'column', padding: '24px 20px', height: '100%', borderRight: '1px solid var(--border)', justifyContent: 'center', alignItems: 'center' }}>
             <div style={{
-              textAlign: 'center', marginBottom: 24, padding: '24px',
-              background: 'rgba(245,166,35,0.05)', borderRadius: 20, border: '1px solid rgba(245,166,35,0.2)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              width: 220, height: 220, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(245,166,35,0.15) 0%, rgba(245,166,35,0.02) 70%)',
+              border: '4px solid rgba(245,166,35,0.5)',
+              boxShadow: '0 0 40px rgba(245,166,35,0.15), inset 0 0 20px rgba(245,166,35,0.1)',
               flexShrink: 0
             }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>Current Bid</div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <span style={{ fontSize: 48, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>₹</span>
+              <div style={{ fontSize: 11, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8, fontWeight: 700 }}>Current Bid</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <span style={{ fontSize: 40, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>₹</span>
                 <input 
                   type="number" 
                   value={currentBid} 
-                  onChange={(e) => setCurrentBid(Number(e.target.value))} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCurrentBid(val === '' ? '' : Number(val));
+                  }} 
                   disabled={userRole !== 'host'}
                   style={{ 
-                    fontSize: 64, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', 
+                    fontSize: 56, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani', 
                     background: 'transparent', border: 'none', width: '3.5ch', textAlign: 'center', 
-                    outline: 'none', textShadow: '0 4px 24px rgba(245,166,35,0.4)', padding: 0
+                    outline: 'none', textShadow: '0 4px 24px rgba(245,166,35,0.5)', padding: 0
                   }} 
                 />
-                <span style={{ fontSize: 48, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>L</span>
+                <span style={{ fontSize: 40, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>L</span>
               </div>
               {selectedTeam ? (
-                <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 10, background: `${selectedTeam.color}22`, border: `1px solid ${selectedTeam.color}66`, borderRadius: 16, padding: '8px 24px' }}>
-                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: selectedTeam.color, boxShadow: `0 0 10px ${selectedTeam.color}` }} />
-                  <span style={{ fontWeight: 800, fontSize: 18, color: selectedTeam.color, letterSpacing: 1 }}>{selectedTeam.name.toUpperCase()}</span>
+                <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 8, background: `${selectedTeam.color}33`, border: `1px solid ${selectedTeam.color}88`, borderRadius: 20, padding: '4px 16px' }}>
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: selectedTeam.color, boxShadow: `0 0 10px ${selectedTeam.color}` }} />
+                  <span style={{ fontWeight: 800, fontSize: 14, color: selectedTeam.color, letterSpacing: 1, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{selectedTeam.name.toUpperCase()}</span>
                 </div>
               ) : (
-                <div style={{ marginTop: 16, fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>No bids yet (Base: {player.base_price}L)</div>
+                <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>No bids (Base: {player.base_price}L)</div>
               )}
             </div>
+          </div>
 
-            {/* Teams Bidding Options List */}
-            <div className="bidding-teams-grid">
-              {teams.map(team => {
-                const spent = getTeamSpent(team)
-                const purseLeft = team.total_purse - spent
-                const playerCount = (team.players || []).filter(p => p.status === 'sold').length
-                const isFull = playerCount >= team.max_players
-                const canBid = !isFull && purseLeft > currentBid
+          {/* RIGHT COLUMN: Teams Options */}
+          <div className="bidding-teams-col" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ flex: 1, padding: '72px 20px 24px 20px', overflowY: 'auto' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>Place Bids</div>
+              <div className="bidding-teams-grid" style={{ paddingRight: 0, display: 'flex', flexDirection: 'column' }}>
+                {teams.map(team => {
+                  const spent = getTeamSpent(team)
+                  const purseLeft = team.total_purse - spent
+                  const playerCount = (team.players || []).filter(p => p.status === 'sold').length
+                  const isFull = playerCount >= team.max_players
+                  const canBid = !isFull && purseLeft > currentBid
 
-                return (
-                  <div key={team.id} style={{
-                    background: selectedTeam?.id === team.id ? `${team.color}15` : 'rgba(255,255,255,0.02)',
-                    border: selectedTeam?.id === team.id ? `2px solid ${team.color}88` : '1px solid var(--border)',
-                    borderRadius: 12, padding: '14px', display: 'flex', flexDirection: 'column', gap: 10,
-                    transition: 'all 0.2s'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                         <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color }} />
-                         <span style={{ fontWeight: 800, fontSize: 15 }}>{team.name}</span>
-                       </div>
-                       <div style={{ fontSize: 13, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', fontWeight: 800 }}>
-                         ₹{purseLeft.toFixed(1)}L
-                       </div>
+                  return (
+                    <div key={team.id} style={{
+                      background: selectedTeam?.id === team.id ? `${team.color}15` : 'rgba(255,255,255,0.02)',
+                      border: selectedTeam?.id === team.id ? `2px solid ${team.color}88` : '1px solid var(--border)',
+                      borderRadius: 12, padding: '10px', display: 'flex', flexDirection: 'column', gap: 8,
+                      transition: 'all 0.2s', marginBottom: 12,
+                      cursor: userRole === 'host' && canBid ? 'pointer' : 'default'
+                    }} onClick={() => {
+                      if (userRole === 'host' && canBid) placeBid(team, 0)
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                           <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color }} />
+                           <span style={{ fontWeight: 800, fontSize: 13 }}>{team.name}</span>
+                         </div>
+                         <div style={{ fontSize: 12, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', fontWeight: 800 }}>
+                           ₹{purseLeft.toFixed(1)}L
+                         </div>
+                      </div>
+                      {canBid ? (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {BID_INCREMENTS.map(inc => (
+                            (Math.round((Number(currentBid) + inc) * 100) / 100) <= purseLeft && (
+                              <button key={inc} onClick={(e) => { e.stopPropagation(); placeBid(team, inc); }} disabled={userRole !== 'host'} style={{
+                                flex: 1, padding: '6px 0', borderRadius: 8, background: userRole === 'host' ? `${team.color}22` : 'transparent',
+                                border: `1px solid ${userRole === 'host' ? `${team.color}44` : 'var(--border)'}`, color: userRole === 'host' ? team.color : 'var(--text-muted)',
+                                fontSize: 11, fontWeight: 800, cursor: userRole === 'host' ? 'pointer' : 'default', transition: 'all 0.15s'
+                              }}>+{inc}L</button>
+                            )
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
+                          {isFull ? 'SQUAD FULL' : 'INSUFFICIENT PURSE'}
+                        </div>
+                      )}
                     </div>
-                    {canBid ? (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {BID_INCREMENTS.map(inc => (
-                          (Math.round((currentBid + inc) * 100) / 100) <= purseLeft && (
-                            <button key={inc} onClick={() => placeBid(team, inc)} disabled={userRole !== 'host'} style={{
-                              flex: 1, padding: '8px 0', borderRadius: 8, background: userRole === 'host' ? `${team.color}22` : 'transparent',
-                              border: `1px solid ${userRole === 'host' ? `${team.color}44` : 'var(--border)'}`, color: userRole === 'host' ? team.color : 'var(--text-muted)',
-                              fontSize: 13, fontWeight: 800, cursor: userRole === 'host' ? 'pointer' : 'default', transition: 'all 0.15s'
-                            }}>+{inc}L</button>
-                          )
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 700, padding: '6px 0', letterSpacing: 1 }}>
-                        {isFull ? 'SQUAD FULL' : 'INSUFFICIENT PURSE'}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Bottom Actions */}
-            <div style={{ display: 'flex', gap: 16, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-               {userRole === 'host' && (
-                  <button onClick={undoBid} disabled={bidHistory.length <= 1} className="btn btn-ghost" style={{ padding: '0 24px', fontSize: 14 }}>↩ Undo</button>
-               )}
-               <button className="btn btn-ghost" style={{ flex: 1, padding: '16px 0', fontSize: 16, fontWeight: 800, letterSpacing: 1 }} onClick={() => onUnsold(player.id)}>UNSOLD</button>
-               <button className="btn btn-gold" style={{ flex: 2, padding: '16px 0', fontSize: 24, fontFamily: 'Rajdhani', fontWeight: 900, letterSpacing: 1 }} onClick={executeSold} disabled={!selectedTeam}>
-                 🔨 SOLD! ₹{currentBid}L
-               </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* BOTTOM ACTIONS: Sold/Unsold */}
+        <div style={{ 
+          padding: '16px 32px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, 
+          background: 'rgba(12,14,20,0.6)', flexShrink: 0 
+        }}>
+           <button className="btn btn-ghost" style={{ flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 800, letterSpacing: 1 }} onClick={() => onUnsold(player.id)}>UNSOLD</button>
+           <button className="btn btn-gold" style={{ flex: 2, padding: '12px 0', fontSize: 20, fontFamily: 'Rajdhani', fontWeight: 900, letterSpacing: 1 }} onClick={executeSold} disabled={!selectedTeam}>
+             🔨 SOLD! ₹{currentBid}L
+           </button>
         </div>
       </div>
 

@@ -59,8 +59,9 @@ export default function Navbar() {
   const [sponsors, setSponsors] = useState([])
 
   useEffect(() => {
-    supabase.from('sponsors').select('*').then(({ data }) => setSponsors(data || []))
-  }, [])
+    if (!activeAuction) return
+    supabase.from('sponsors').select('*').eq('auction_id', activeAuction.id).then(({ data }) => setSponsors(data || []))
+  }, [activeAuction])
 
   const titleSponsor = sponsors.find(s => s.category === 'Title Sponsor')
   const coSponsor = sponsors.find(s => s.category === 'Co-Sponsor')

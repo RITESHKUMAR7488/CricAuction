@@ -46,18 +46,20 @@ create table if not exists auction_members (
   unique(auction_id, user_id)
 );
 
--- Owners table (global)
+-- Owners table (per auction)
 create table if not exists owners (
   id uuid primary key default uuid_generate_v4(),
+  auction_id uuid references auctions(id) on delete cascade,
   name text not null,
   company text,
   photo_url text,
   created_at timestamptz default now()
 );
 
--- Sponsors table (global)
+-- Sponsors table (per auction)
 create table if not exists sponsors (
   id uuid primary key default uuid_generate_v4(),
+  auction_id uuid references auctions(id) on delete cascade,
   category text not null,
   name text not null,
   logo_url text,
@@ -149,15 +151,36 @@ create policy "Members insert" on auction_members for insert with check (auth.ui
 drop policy if exists "Members delete" on auction_members;
 create policy "Members delete" on auction_members for delete using (auth.uid() = user_id OR exists (select 1 from auctions where id = auction_members.auction_id and host_id = auth.uid()));
 
--- Policies for Owners & Sponsors (Global resources)
+-- Clean up old global policies and old public auction leaks
 drop policy if exists "Auth owners read" on owners;
-create policy "Auth owners read" on owners for select using (auth.role() = 'authenticated');
 drop policy if exists "Auth owners all" on owners;
-create policy "Auth owners all" on owners for all using (auth.role() = 'authenticated');
 drop policy if exists "Auth sponsors read" on sponsors;
-create policy "Auth sponsors read" on sponsors for select using (auth.role() = 'authenticated');
 drop policy if exists "Auth sponsors all" on sponsors;
-create policy "Auth sponsors all" on sponsors for all using (auth.role() = 'authenticated');
+drop policy if exists "Public auctions read" on auctions;
+
+-- Alter existing tables to add auction_id if missing (for migrations)
+alter table owners add column if not exists auction_id uuid references auctions(id) on delete cascade;
+alter table sponsors add column if not exists auction_id uuid references auctions(id) on delete cascade;
+
+-- Policies for Owners
+drop policy if exists "Owners read" on owners;
+create policy "Owners read" on owners for select using (
+  exists (select 1 from auctions where id = owners.auction_id and (host_id = auth.uid() or exists (select 1 from auction_members where auction_id = auctions.id and user_id = auth.uid())))
+);
+drop policy if exists "Owners mod" on owners;
+create policy "Owners mod" on owners for all using (
+  exists (select 1 from auctions where id = owners.auction_id and host_id = auth.uid())
+);
+
+-- Policies for Sponsors
+drop policy if exists "Sponsors read" on sponsors;
+create policy "Sponsors read" on sponsors for select using (
+  exists (select 1 from auctions where id = sponsors.auction_id and (host_id = auth.uid() or exists (select 1 from auction_members where auction_id = auctions.id and user_id = auth.uid())))
+);
+drop policy if exists "Sponsors mod" on sponsors;
+create policy "Sponsors mod" on sponsors for all using (
+  exists (select 1 from auctions where id = sponsors.auction_id and host_id = auth.uid())
+);
 
 -- Policies for Teams
 drop policy if exists "Teams read" on teams;
@@ -228,5 +251,6 @@ alter table players replica identity full;
 alter table teams replica identity full;
 
 -- Add the tables to the supabase_realtime publication so clients receive events
-alter publication supabase_realtime add table players;
-alter publication supabase_realtime add table teams;
+-- (Commented out to avoid "already member" error if run multiple times)
+-- alter publication supabase_realtime add table players;
+-- alter publication supabase_realtime add table teams;

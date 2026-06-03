@@ -17,6 +17,7 @@ export default function Teams() {
   const [owners, setOwners] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showOwnerModal, setShowOwnerModal] = useState(false)
   const [editingTeam, setEditingTeam] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
   const [ownerFilter, setOwnerFilter] = useState('all')
@@ -54,7 +55,8 @@ export default function Teams() {
   }
 
   async function loadOwners() {
-    const { data } = await supabase.from('owners').select('*').order('name')
+    if (!activeAuction) return
+    const { data } = await supabase.from('owners').select('*').eq('auction_id', activeAuction.id).order('name')
     setOwners(data || [])
   }
 
@@ -104,9 +106,14 @@ export default function Teams() {
       <div className="page-header">
         <h1 className="page-title">TEAMS</h1>
         {userRole === 'host' && (
-          <button className="btn btn-primary btn-sm" onClick={() => { setEditingTeam(null); setShowModal(true) }} id="add-team-btn">
-            + ADD TEAM
-          </button>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowOwnerModal(true)} style={{ color: 'var(--blue)', background: 'rgba(74,158,255,0.1)' }}>
+              MANAGE OWNERS
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => { setEditingTeam(null); setShowModal(true) }} id="add-team-btn">
+              + ADD TEAM
+            </button>
+          </div>
         )}
       </div>
 
@@ -235,6 +242,15 @@ export default function Teams() {
           editTeam={editingTeam}
           onClose={() => { setShowModal(false); setEditingTeam(null) }}
           onSaved={() => { setShowModal(false); setEditingTeam(null); loadTeams() }}
+        />
+      )}
+
+      {showOwnerModal && (
+        <ManageOwnersModal
+          auctionId={activeAuction.id}
+          owners={owners}
+          onClose={() => setShowOwnerModal(false)}
+          onSaved={() => { loadOwners() }}
         />
       )}
     </div>
@@ -570,6 +586,123 @@ function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Saving...' : (editTeam ? 'Save Changes' : 'Create Team')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function ManageOwnersModal({ auctionId, owners, onClose, onSaved }) {
+  const [name, setName] = useState('')
+  const [photo, setPhoto] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const fileRef = React.useRef()
+
+  useEffect(() => {
+    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview) }
+  }, [photoPreview])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim()) return showToast('Owner name is required', 'error')
+    setLoading(true)
+    try {
+      let photo_url = null
+      if (photo) photo_url = await uploadFile(photo, 'owners')
+      
+      const { error } = await supabase.from('owners').insert({
+        auction_id: auctionId,
+        name: name.trim(),
+        photo_url
+      })
+      
+      if (error) throw error
+      showToast('Owner added successfully!', 'success')
+      setName('')
+      setPhoto(null)
+      setPhotoPreview(null)
+      onSaved()
+    } catch(err) {
+      showToast('Error: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this owner?')) return
+    try {
+      const { error } = await supabase.from('owners').delete().eq('id', id)
+      if (error) throw error
+      showToast('Owner deleted', 'success')
+      onSaved()
+    } catch(err) {
+      showToast('Error: ' + err.message, 'error')
+    }
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <div className="modal-title">Manage Owners</div>
+          <button className="modal-close" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
+        </div>
+        
+        <div style={{ marginBottom: 24, maxHeight: 240, overflowY: 'auto' }}>
+          {owners.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 20 }}>No owners found</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {owners.map(o => (
+                <div key={o.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {o.photo_url ? (
+                      <img src={o.photo_url} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--border)' }} />
+                    )}
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{o.name}</div>
+                  </div>
+                  <button onClick={() => handleDelete(o.id)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: 4 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Add New Owner</div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Owner Photo</label>
+            <div className="photo-upload" onClick={() => fileRef.current.click()} style={{ padding: 16 }}>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                const f = e.target.files[0];
+                if(f) { setPhoto(f); setPhotoPreview(URL.createObjectURL(f)); }
+              }} />
+              {photoPreview ? (
+                <img src={photoPreview} alt="preview" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 8px', display: 'block' }} />
+              ) : (
+                <div className="photo-upload-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+              )}
+              <div className="photo-upload-text">{photoPreview ? 'Tap to change' : 'Upload photo'}</div>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Owner Name *</label>
+            <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Mukesh Ambani" />
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Done</button>
+            <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
+              {loading ? 'Adding...' : 'Add Owner'}
             </button>
           </div>
         </form>
