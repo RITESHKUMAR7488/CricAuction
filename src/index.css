@@ -2195,14 +2195,28 @@ body {
 
 /* ---- AUCTION RESPONSIVE FIXES ---- */
 .auction-teams-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  padding-bottom: 6px;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 12px;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.auction-teams-grid::-webkit-scrollbar {
+  display: none;
+}
+.auction-teams-grid > div {
+  flex: 0 0 160px;
 }
 @media (min-width: 600px) {
   .auction-teams-grid {
+    display: grid;
     grid-template-columns: repeat(3, 1fr);
+    overflow-x: visible;
+  }
+  .auction-teams-grid > div {
+    flex: unset;
   }
 }
 @media (min-width: 900px) {
