@@ -912,7 +912,7 @@ function BiddingModal({
           </div>
 
           {/* CENTER COLUMN: Bid Circle */}
-          <div className="bidding-center-col" style={{ display: 'flex', flexDirection: 'column', padding: '24px 20px', height: '100%', borderRight: '1px solid var(--border)', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="bidding-center-col" style={{ display: 'flex', flexDirection: 'column', padding: '24px 20px', borderRight: '1px solid var(--border)', justifyContent: 'center', alignItems: 'center' }}>
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               width: 220, height: 220, borderRadius: '50%',
@@ -952,7 +952,7 @@ function BiddingModal({
           </div>
 
           {/* RIGHT COLUMN: Teams Options */}
-          <div className="bidding-teams-col" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div className="bidding-teams-col" style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1, padding: '72px 20px 24px 20px', overflowY: 'auto' }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>Place Bids</div>
               <div className="bidding-teams-grid" style={{ paddingRight: 0, display: 'flex', flexDirection: 'column' }}>

@@ -2243,6 +2243,11 @@ body {
   overflow-y: auto;
 }
 
+.bidding-teams-col, .bidding-player-col, .bidding-center-col {
+  flex-shrink: 0;
+  height: auto;
+}
+
 .bidding-teams-col {
   order: -1;
   border-bottom: 1px solid var(--border);
@@ -2253,6 +2258,9 @@ body {
     display: grid;
     grid-template-columns: 30% 40% 30%;
     overflow-y: hidden;
+  }
+  .bidding-teams-col, .bidding-player-col, .bidding-center-col {
+    height: 100%;
   }
   .bidding-teams-col {
     order: unset;
