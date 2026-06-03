@@ -2226,9 +2226,12 @@ body {
 }
 @media (max-width: 600px) {
   .auction-footer {
-    justify-content: center;
-    flex-direction: column;
+    justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: nowrap;
     text-align: center;
+    gap: 8px;
+    padding: 12px 10px;
   }
   .auction-footer > div {
     justify-content: center;
