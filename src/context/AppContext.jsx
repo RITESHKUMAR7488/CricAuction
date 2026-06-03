@@ -154,6 +154,16 @@ export function AppProvider({ children }) {
     }
   }
 
+  async function updateBannerLogo(url) {
+    if (activeAuction) {
+      const { error } = await supabase.from('auctions').update({ banner_url: url }).eq('id', activeAuction.id)
+      if (!error) {
+        setActiveAuction(prev => ({ ...prev, banner_url: url }))
+        setAuctions(prev => prev.map(a => a.id === activeAuction.id ? { ...a, banner_url: url } : a))
+      }
+    }
+  }
+
   async function createAuction(name) {
     if (!user) throw new Error('Must be logged in to create auction')
 
@@ -237,6 +247,7 @@ export function AppProvider({ children }) {
       user, userRole, logout,
       leagueName, updateLeagueName,
       leagueLogo, updateLeagueLogo,
+      updateBannerLogo,
       activeAuction, auctions,
       createAuction, joinAuction, switchAuction, resetAuction,
       clearActiveAuction,

@@ -36,6 +36,7 @@ create table if not exists auctions (
 -- Add new columns if table already existed
 alter table auctions add column if not exists host_id uuid references auth.users(id);
 alter table auctions add column if not exists join_code text unique;
+alter table auctions add column if not exists banner_url text;
 
 -- Auction Members table
 create table if not exists auction_members (
@@ -95,6 +96,8 @@ create table if not exists players (
   age integer,
   style text,
   matches integer default 0,
+  runs integer default 0,
+  wickets integer default 0,
   strike_rate numeric,
   economy numeric,
   base_price numeric not null default 1,
@@ -207,7 +210,8 @@ insert into storage.buckets (id, name, public) values ('cricket-auction', 'crick
 drop policy if exists "Public storage read" on storage.objects;
 create policy "Public storage read" on storage.objects for select using (bucket_id = 'cricket-auction');
 drop policy if exists "Auth storage insert" on storage.objects;
-create policy "Auth storage insert" on storage.objects for insert with check (bucket_id = 'cricket-auction' and auth.role() = 'authenticated');
+-- Allow both authenticated and anonymous users to upload (required for signup profile pictures)
+create policy "Auth storage insert" on storage.objects for insert with check (bucket_id = 'cricket-auction');
 drop policy if exists "Auth storage update" on storage.objects;
 create policy "Auth storage update" on storage.objects for update using (bucket_id = 'cricket-auction' and auth.role() = 'authenticated');
 drop policy if exists "Auth storage delete" on storage.objects;

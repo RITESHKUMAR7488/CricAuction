@@ -7,7 +7,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Upload a file to Supabase Storage and return its public URL
 export async function uploadFile(file, folder = 'general') {
-  const ext = file.name.split('.').pop()
+  const fileNameStr = file.name || 'image.jpg'
+  const ext = fileNameStr.split('.').pop()
   const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
   const { error } = await supabase.storage
     .from('cricket-auction')

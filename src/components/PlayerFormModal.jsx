@@ -10,6 +10,8 @@ export default function PlayerFormModal({ auctionId, existingCodes, editPlayer, 
     age: editPlayer?.age?.toString() || '', 
     style: editPlayer?.style || 'RHB',
     matches: editPlayer?.matches?.toString() || '', 
+    runs: editPlayer?.runs?.toString() || '', 
+    wickets: editPlayer?.wickets?.toString() || '', 
     strike_rate: editPlayer?.strike_rate?.toString() || '', 
     economy: editPlayer?.economy?.toString() || '', 
     base_price: editPlayer?.base_price?.toString() || '1',
@@ -59,6 +61,8 @@ export default function PlayerFormModal({ auctionId, existingCodes, editPlayer, 
         age: form.age ? parseInt(form.age) : null,
         style: form.style || null,
         matches: form.matches ? parseInt(form.matches) : 0,
+        runs: form.runs ? parseInt(form.runs) : 0,
+        wickets: form.wickets ? parseInt(form.wickets) : 0,
         strike_rate: form.strike_rate ? parseFloat(form.strike_rate) : null,
         economy: form.economy ? parseFloat(form.economy) : null,
         base_price: basePrice,
@@ -170,6 +174,31 @@ export default function PlayerFormModal({ auctionId, existingCodes, editPlayer, 
                 onChange={e => setForm(f => ({ ...f, matches: e.target.value }))}
                 placeholder="0"
                 id="player-matches-input"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Runs</label>
+              <input
+                className="form-input"
+                type="number"
+                value={form.runs}
+                onChange={e => setForm(f => ({ ...f, runs: e.target.value }))}
+                placeholder="0"
+                id="player-runs-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Wickets</label>
+              <input
+                className="form-input"
+                type="number"
+                value={form.wickets}
+                onChange={e => setForm(f => ({ ...f, wickets: e.target.value }))}
+                placeholder="0"
+                id="player-wickets-input"
               />
             </div>
           </div>

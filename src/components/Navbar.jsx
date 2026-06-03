@@ -56,51 +56,12 @@ const navItems = [
 
 export default function Navbar() {
   const { leagueName, leagueLogo, activeAuction, isSidebarMinimized, setIsSidebarMinimized } = useApp()
-  const [sponsors, setSponsors] = useState([])
-
-  useEffect(() => {
-    if (!activeAuction) return
-    supabase.from('sponsors').select('*').eq('auction_id', activeAuction.id).then(({ data }) => setSponsors(data || []))
-  }, [activeAuction])
-
-  const titleSponsor = sponsors.find(s => s.category === 'Title Sponsor')
-  const coSponsor = sponsors.find(s => s.category === 'Co-Sponsor')
 
   const currentLogo = activeAuction?.logo_url || leagueLogo
   const currentName = activeAuction?.name || leagueName
 
   return (
     <>
-      {/* Sponsor strip — hidden on desktop sidebar layout */}
-      <div className="sponsor-strip-bar">
-        {/* Left: BricX Logo */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0, flexShrink: 0 }}>
-          <img src="/bricx-logo.png" alt="BricX" style={{ height: 24, objectFit: 'contain' }} />
-        </div>
-
-        {/* Center: Title Sponsor */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {titleSponsor?.logo_url ? (
-            <img src={titleSponsor.logo_url} alt="Title Sponsor" style={{ maxHeight: 26, maxWidth: 72, objectFit: 'contain' }} />
-          ) : titleSponsor ? (
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{titleSponsor.name.toUpperCase()}</div>
-          ) : (
-            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>No Title Sponsor</div>
-          )}
-        </div>
-
-        {/* Right: Co Sponsor */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-          {coSponsor?.logo_url ? (
-            <img src={coSponsor.logo_url} alt="Co-Sponsor" style={{ maxHeight: 22, maxWidth: 56, objectFit: 'contain' }} />
-          ) : coSponsor ? (
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', fontFamily: 'Rajdhani', letterSpacing: 0.5 }}>{coSponsor.name.toUpperCase()}</div>
-          ) : (
-            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>No Co-Sponsor</div>
-          )}
-        </div>
-      </div>
-
       <nav className="bottom-nav">
         {/* Sidebar logo — only visible on desktop */}
         <div className="sidebar-logo">

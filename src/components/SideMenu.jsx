@@ -1,17 +1,28 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
+import Cropper from 'react-easy-crop'
+import getCroppedImg from '../lib/cropImage'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { exportAuctionPDF, exportAuctionCSV } from '../lib/exportUtils'
 import { showToast } from './Toast'
 
 export default function SideMenu({ onClose }) {
-  const { leagueName, updateLeagueName, leagueLogo, updateLeagueLogo, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole, clearActiveAuction } = useApp()
+  const { leagueName, updateLeagueName, leagueLogo, updateLeagueLogo, updateBannerLogo, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole, clearActiveAuction } = useApp()
   const [view, setView] = useState('main') // main | rename | updatelogo | newauction | switchauction
   const [nameInput, setNameInput] = useState(activeAuction?.name || leagueName)
   const [logoInput, setLogoInput] = useState(activeAuction?.logo_url || leagueLogo)
   const [auctionName, setAuctionName] = useState('')
   const [hostEmail, setHostEmail] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const [cropImage, setCropImage] = useState(null)
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
+
+  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels)
+  }, [])
 
   async function handleRename() {
     if (!nameInput.trim()) return
@@ -68,8 +79,34 @@ export default function SideMenu({ onClose }) {
 
   return (
     <div className="menu-overlay">
-      <div className="menu-backdrop" onClick={onClose} />
-      <div className="menu-panel">
+      <div className="menu-backdrop" onClick={onClose} style={{ zIndex: 1 }} />
+      
+      <div style={{
+        position: 'absolute',
+        left: '10%',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        pointerEvents: 'none',
+        zIndex: 2,
+        opacity: 0.5,
+      }}>
+        <div style={{ fontSize: 'min(8vw, 70px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '8px', color: '#ffffff', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
+          POWERED
+        </div>
+        <div style={{ fontSize: 'min(8vw, 70px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '8px', color: '#ffffff', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', marginBottom: 12 }}>
+          BY
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{ fontSize: 'min(9vw, 80px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '10px', color: '#ffffff', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
+            BRICX
+          </div>
+          <img src="/bricx-logo.png" alt="BricX" style={{ height: 'min(8vw, 70px)', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+        </div>
+      </div>
+
+      <div className="menu-panel" style={{ zIndex: 3 }}>
         <button 
           onClick={onClose} 
           style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 28, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1 }}
@@ -116,6 +153,9 @@ export default function SideMenu({ onClose }) {
               </div>
               <div className="menu-item" onClick={() => { setView('updatelogo'); setLogoInput(activeAuction?.logo_url || leagueLogo) }} id="menu-update-logo">
                 <span>🖼️</span> Update Logo
+              </div>
+              <div className="menu-item" onClick={() => { setView('updatebanner'); }} id="menu-update-banner">
+                <span>🏙️</span> Update Banner
               </div>
               <div className="menu-item" onClick={() => { setView('addhost'); setHostEmail('') }} id="menu-add-host">
                 <span>👑</span> Add Co-Host
@@ -229,6 +269,69 @@ export default function SideMenu({ onClose }) {
           )
         })()}
 
+        {view === 'updatebanner' && (() => {
+          const fileRef3 = React.createRef()
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Update Tournament Banner</div>
+              
+              {!cropImage ? (
+                <>
+                  <input ref={fileRef3} type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files[0]
+                      if (!file) return
+                      const url = URL.createObjectURL(file)
+                      setCropImage(url)
+                    }}
+                  />
+                  {activeAuction?.banner_url && (
+                    <img src={activeAuction?.banner_url} alt="current banner" style={{ width: '100%', height: 80, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
+                  )}
+                  <button className="btn btn-primary btn-sm" onClick={() => fileRef3.current?.click()} disabled={loading}>
+                    {loading ? 'Uploading...' : '📷 Choose Photo'}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ position: 'relative', width: '100%', height: 250, background: '#1a1a1a', borderRadius: 8, overflow: 'hidden' }}>
+                    <Cropper
+                      image={cropImage}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={16 / 9}
+                      onCropChange={setCrop}
+                      onCropComplete={onCropComplete}
+                      onZoomChange={setZoom}
+                    />
+                  </div>
+                  <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={(e) => setZoom(e.target.value)} style={{ width: '100%' }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => { setCropImage(null); setZoom(1); }}>Cancel</button>
+                    <button className="btn btn-primary btn-sm" onClick={async () => {
+                      try {
+                        setLoading(true)
+                        const croppedImage = await getCroppedImg(cropImage, croppedAreaPixels)
+                        const { uploadFile } = await import('../lib/supabase')
+                        const url = await uploadFile(croppedImage, 'logos')
+                        await updateBannerLogo(url)
+                        setCropImage(null)
+                        setView('main')
+                        showToast('Banner updated!', 'success')
+                      } catch(err) {
+                        showToast('Upload error: ' + err.message, 'error')
+                      } finally { setLoading(false) }
+                    }} disabled={loading}>
+                      {loading ? 'Saving...' : 'Save Banner'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {view === 'addhost' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Add Co-Host</div>
@@ -317,7 +420,7 @@ export default function SideMenu({ onClose }) {
         )}
 
         <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
-          <img src="/bricx-logo.png" alt="Powered by BRICX" style={{ width: 80, objectFit: 'contain', marginBottom: 12 }} />
+          <img src="/bricx-logo.png" alt="Powered by BRICX" style={{ width: 140, objectFit: 'contain', marginBottom: 12 }} />
         </div>
       </div>
     </div>

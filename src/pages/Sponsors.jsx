@@ -129,7 +129,7 @@ export default function Sponsors() {
                   display: 'flex', 
                   overflowX: 'auto', 
                   scrollSnapType: 'x mandatory',
-                  height: 'calc(100vh - 140px)',
+                  height: '100%',
                   scrollbarWidth: 'none',
                   msOverflowStyle: 'none'
                 }}
@@ -142,8 +142,7 @@ export default function Sponsors() {
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
-                    background: 'var(--bg-secondary)',
-                    padding: 24
+                    background: 'var(--bg-secondary)'
                   }}>
                     {sponsor.logo_url ? (
                       <img src={sponsor.logo_url} alt="Sponsor" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -153,24 +152,20 @@ export default function Sponsors() {
                   </div>
                 ))}
               </div>
-              {/* Desktop Nav Buttons */}
+              {/* Nav Buttons */}
               <button 
-                className="desktop-only"
                 onClick={scrollPrev} 
-                style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 48, height: 48, borderRadius: '50%', cursor: 'pointer', zIndex: 10 }}
+                style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}
               >
                 ←
               </button>
               <button 
-                className="desktop-only"
                 onClick={scrollNext} 
-                style={{ position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 48, height: 48, borderRadius: '50%', cursor: 'pointer', zIndex: 10 }}
+                style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}
               >
                 →
               </button>
               <style>{`
-                .desktop-only { display: none; }
-                @media (min-width: 768px) { .desktop-only { display: block; } }
                 ::-webkit-scrollbar { display: none; }
               `}</style>
             </>

@@ -100,25 +100,38 @@ export default function Rankings() {
         <>
           {/* Top 3 Podium */}
           {tab === 'sold' && top3.length > 0 && (
-            <div className="rankings-podium" style={{ 
-              display: 'flex', 
-              alignItems: 'flex-end', 
-              justifyContent: 'center', 
-              gap: 16,
-              paddingTop: 32,
-              marginBottom: 32 
+            <div className="rankings-podium-wrapper" style={{
+              minHeight: 'calc(100vh - 180px)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingBottom: 24
             }}>
-              {/* 2nd place */}
-              {top3[1] && (
-                <PodiumCard player={top3[1]} rank={2} onClick={() => navigate(`/players/${top3[1].id}`)} />
-              )}
-              {/* 1st place */}
-              {top3[0] && (
-                <PodiumCard player={top3[0]} rank={1} onClick={() => navigate(`/players/${top3[0].id}`)} />
-              )}
-              {/* 3rd place */}
-              {top3[2] && (
-                <PodiumCard player={top3[2]} rank={3} onClick={() => navigate(`/players/${top3[2].id}`)} />
+              <div className="rankings-podium" style={{ 
+                display: 'flex', 
+                alignItems: 'flex-end', 
+                justifyContent: 'center', 
+                gap: 16,
+              }}>
+                {/* 2nd place */}
+                {top3[1] && (
+                  <PodiumCard player={top3[1]} rank={2} onClick={() => navigate(`/players/${top3[1].id}`)} />
+                )}
+                {/* 1st place */}
+                {top3[0] && (
+                  <PodiumCard player={top3[0]} rank={1} onClick={() => navigate(`/players/${top3[0].id}`)} />
+                )}
+                {/* 3rd place */}
+                {top3[2] && (
+                  <PodiumCard player={top3[2]} rank={3} onClick={() => navigate(`/players/${top3[2].id}`)} />
+                )}
+              </div>
+              {rest.length > 0 && (
+                <div style={{ marginTop: 40, color: 'var(--text-muted)', fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
+                  <span style={{ letterSpacing: 1 }}>SCROLL FOR MORE</span>
+                  <span style={{ marginTop: 4 }}>▼</span>
+                </div>
               )}
             </div>
           )}
@@ -214,24 +227,31 @@ function PodiumCard({ player, rank, onClick }) {
 
   return (
     <div
-      className="podium-card"
+      className={`podium-card ${isFirst ? 'podium-first' : 'podium-other'}`}
       style={{
         flex: 1,
-        maxWidth: isFirst ? 160 : 130,
-        minWidth: 0,
+        maxWidth: isFirst ? 280 : 220,
+        minWidth: isFirst ? 200 : 160,
         background: c.bg,
         border: `1px solid ${c.border}`,
         boxShadow: c.glow,
-        transform: isFirst ? 'translateY(-20px)' : 'none',
-        paddingTop: 18,
-        borderRadius: 16,
+        transform: isFirst ? 'translateY(-30px)' : 'none',
+        paddingTop: 30,
+        borderRadius: 24,
         position: 'relative',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 14
+        display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 24,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
       }}
       onClick={onClick}
     >
       {/* Rank badge */}
-      <div className="podium-rank-badge" style={{ background: c.rankBg, color: c.rankColor }}>
+      <div className="podium-rank-badge" style={{ 
+        background: c.rankBg, color: c.rankColor, 
+        width: 32, height: 32, fontSize: 16, 
+        position: 'absolute', top: -16, borderRadius: '50%', 
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' 
+      }}>
         {rank}
       </div>
 
@@ -242,30 +262,30 @@ function PodiumCard({ player, rank, onClick }) {
           alt={player.name}
           className="podium-photo"
           style={{
-            width: isFirst ? '62%' : '54%',
+            width: isFirst ? '60%' : '55%',
             aspectRatio: '1',
             borderRadius: '50%',
             objectFit: 'cover',
-            border: `3px solid ${c.border}`,
-            marginBottom: 10,
-            maxWidth: isFirst ? 68 : 56,
-            minWidth: isFirst ? 44 : 36,
+            border: `4px solid ${c.border}`,
+            marginBottom: 16,
+            maxWidth: isFirst ? 140 : 110,
+            minWidth: isFirst ? 100 : 80,
           }}
         />
       ) : (
         <div
           className="podium-photo-placeholder"
           style={{
-            width: isFirst ? '62%' : '54%',
+            width: isFirst ? '60%' : '55%',
             aspectRatio: '1',
-            maxWidth: isFirst ? 68 : 56,
-            minWidth: isFirst ? 44 : 36,
+            maxWidth: isFirst ? 140 : 110,
+            minWidth: isFirst ? 100 : 80,
             borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'var(--bg-secondary)',
-            border: `3px solid ${c.border}`,
-            marginBottom: 10,
-            fontSize: isFirst ? 28 : 22,
+            border: `4px solid ${c.border}`,
+            marginBottom: 16,
+            fontSize: isFirst ? 48 : 36,
           }}
         >
           👤
@@ -273,27 +293,30 @@ function PodiumCard({ player, rank, onClick }) {
       )}
 
       {/* Name */}
-      <div className="podium-name" style={{ fontSize: isFirst ? 13 : 11, padding: '0 6px', textAlign: 'center', wordBreak: 'break-word' }}>
+      <div className="podium-name" style={{ fontSize: isFirst ? 20 : 16, padding: '0 12px', textAlign: 'center', wordBreak: 'break-word', fontWeight: 800, fontFamily: 'Rajdhani', letterSpacing: 1 }}>
         {player.name}
       </div>
 
       {/* Team */}
       {player.teams && (
-        <div className="podium-team" style={{ color: player.teams.color || 'var(--text-muted)', padding: '0 4px' }}>
-          <span style={{ fontSize: 10 }}>🏆</span>
-          <span style={{ fontSize: 9, fontWeight: 600 }}>{player.teams.name}</span>
+        <div className="podium-team" style={{ color: player.teams.color || 'var(--text-muted)', padding: '0 8px', marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 14 }}>🏆</span>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>{player.teams.name}</span>
         </div>
       )}
 
       {/* Price */}
-      <div className="podium-price" style={{ fontSize: isFirst ? 14 : 12 }}>
+      <div className="podium-price" style={{ fontSize: isFirst ? 24 : 20, marginTop: 12, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>
         ₹{player.sold_price}L
       </div>
 
       {/* Role badge */}
       <div
         className="podium-role-badge"
-        style={{ background: c.badgeBg, color: c.badgeColor, border: `1px solid ${c.border}`, fontSize: 8 }}
+        style={{ 
+          background: c.badgeBg, color: c.badgeColor, border: `1px solid ${c.border}`, 
+          fontSize: 11, fontWeight: 800, padding: '4px 12px', borderRadius: 16, marginTop: 16, letterSpacing: 1 
+        }}
       >
         {player.role?.toUpperCase()}
       </div>

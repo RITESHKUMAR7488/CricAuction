@@ -24,6 +24,23 @@ export default function Auction() {
   const [settings, setSettings] = useState(null)
   const [showFooterModal, setShowFooterModal] = useState(false)
   const [audienceSoldTrigger, setAudienceSoldTrigger] = useState(false)
+  const [showBannerSplash, setShowBannerSplash] = useState(true)
+
+  useEffect(() => {
+    if (activeAuction?.banner_url) {
+      const splashKey = `splash_shown_${activeAuction.id}`
+      if (!sessionStorage.getItem(splashKey)) {
+        setShowBannerSplash(true)
+        sessionStorage.setItem(splashKey, 'true')
+        const timer = setTimeout(() => setShowBannerSplash(false), 2000)
+        return () => clearTimeout(timer)
+      } else {
+        setShowBannerSplash(false)
+      }
+    } else {
+      setShowBannerSplash(false)
+    }
+  }, [activeAuction?.banner_url, activeAuction?.id])
 
   const playersRef = useRef(players)
   useEffect(() => {
@@ -239,6 +256,24 @@ export default function Auction() {
     )
   }
 
+  if (showBannerSplash && activeAuction?.banner_url) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        animation: 'fadeOut 0.5s ease-out 1.5s forwards'
+      }}>
+        <img src={activeAuction.banner_url} alt="Tournament Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <style>{`
+          @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; visibility: hidden; }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
   return (
     <div className="page-content" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -393,7 +428,7 @@ export default function Auction() {
         <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Powered By</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Digital Sponsor</div>
           {settings?.bricx_logo ? (
             <img src={settings.bricx_logo} alt="BricX" style={{ height: 40, objectFit: 'contain' }} />
           ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 40, objectFit: 'contain' }} />}
@@ -764,6 +799,30 @@ function BiddingModal({
   audienceSoldTrigger, onSoldAnimationStart
 }) {
   const [showSoldAnimation, setShowSoldAnimation] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(30)
+
+  useEffect(() => {
+    setTimeLeft(30)
+  }, [bidHistory.length])
+
+  useEffect(() => {
+    const timerId = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 0) {
+          clearInterval(timerId)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(timerId)
+  }, [])
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
 
   useEffect(() => {
     if (audienceSoldTrigger) {
@@ -869,15 +928,15 @@ function BiddingModal({
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
               {player.photo_url ? (
-                <img src={player.photo_url} alt={player.name} style={{
-                  width: 140, height: 140, objectFit: 'cover', borderRadius: '50%', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}88`,
+                <img src={player.photo_url} alt={player.name} className="bidding-player-photo" style={{
+                  objectFit: 'cover', borderRadius: '50%', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}88`,
                   filter: `drop-shadow(0 10px 20px ${roleColors[player.role] || 'var(--blue)'}33)`
                 }} />
               ) : (
-                <div style={{
-                  width: 140, height: 140, borderRadius: '50%',
+                <div className="bidding-player-photo" style={{
+                  borderRadius: '50%',
                   background: 'var(--bg-secondary)', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: `0 10px 20px ${roleColors[player.role] || 'var(--blue)'}22`
                 }}>👤</div>
               )}
@@ -886,27 +945,27 @@ function BiddingModal({
                   {player.name}
                 </div>
                 <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginTop: 6 }}>
-                  {player.role} • {player.code}
+                  {player.role} • Base Price: ₹ {player.base_price} L
                 </div>
               </div>
             </div>
 
-            <div style={{ width: '100%', marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Batting</div>
-                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{player.batting_style || '-'}</div>
+            <div style={{ width: '100%', marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)', textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Age</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{player.age || '-'}</div>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Bowling</div>
-                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{player.bowling_style || '-'}</div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)', textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Matches</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{player.matches || '0'}</div>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Age / Phone</div>
-                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{player.age || '-'} / {player.phone || '-'}</div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)', textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Runs</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{player.runs || '0'}</div>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Base Price</div>
-                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, color: 'var(--gold)' }}>₹ {player.base_price} L</div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 12, border: '1px solid var(--border)', textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Wickets</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{player.wickets || '0'}</div>
               </div>
             </div>
           </div>
@@ -948,6 +1007,19 @@ function BiddingModal({
               ) : (
                 <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>No bids (Base: {player.base_price}L)</div>
               )}
+            </div>
+
+            {/* TIMER */}
+            <div style={{ marginTop: 32, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4, fontWeight: 700 }}>Time Remaining</div>
+              <div style={{ 
+                fontSize: 48, fontWeight: 900, fontFamily: 'Rajdhani', 
+                color: timeLeft <= 5 ? 'var(--red)' : '#fff', 
+                textShadow: timeLeft <= 5 ? '0 0 20px rgba(220,53,69,0.5)' : 'none',
+                fontVariantNumeric: 'tabular-nums'
+              }}>
+                {formatTime(timeLeft)}
+              </div>
             </div>
           </div>
 
@@ -1012,8 +1084,8 @@ function BiddingModal({
           padding: '16px 32px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, 
           background: 'rgba(12,14,20,0.6)', flexShrink: 0 
         }}>
-           <button className="btn btn-ghost" style={{ flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 800, letterSpacing: 1 }} onClick={() => onUnsold(player.id)}>UNSOLD</button>
-           <button className="btn btn-gold" style={{ flex: 2, padding: '12px 0', fontSize: 20, fontFamily: 'Rajdhani', fontWeight: 900, letterSpacing: 1 }} onClick={executeSold} disabled={!selectedTeam}>
+           <button className="btn btn-ghost" style={{ flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 800, letterSpacing: 1, opacity: userRole !== 'host' ? 0.5 : 1 }} onClick={() => onUnsold(player.id)} disabled={userRole !== 'host'}>UNSOLD</button>
+           <button className="btn btn-gold" style={{ flex: 2, padding: '12px 0', fontSize: 20, fontFamily: 'Rajdhani', fontWeight: 900, letterSpacing: 1, opacity: userRole !== 'host' ? 0.5 : 1 }} onClick={executeSold} disabled={!selectedTeam || userRole !== 'host'}>
              🔨 SOLD! ₹{currentBid}L
            </button>
         </div>
