@@ -412,7 +412,11 @@ export default function Auction() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Title Sponsor</div>
           {settings?.title_logo ? (
-             <img src={settings.title_logo} alt="Title Sponsor" style={{ height: 40, objectFit: 'contain' }} />
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              {settings.title_logo.split(',').map((url, i) => (
+                <img key={i} src={url} alt={`Title Sponsor ${i+1}`} style={{ height: 40, objectFit: 'contain' }} />
+              ))}
+            </div>
           ) : <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1 }}>[TITLE SPONSOR]</div>}
         </div>
 
@@ -421,7 +425,11 @@ export default function Auction() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Co-Title Sponsor</div>
           {settings?.co_title_logo ? (
-             <img src={settings.co_title_logo} alt="Co-Title Sponsor" style={{ height: 40, objectFit: 'contain' }} />
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              {settings.co_title_logo.split(',').map((url, i) => (
+                <img key={i} src={url} alt={`Co-Title Sponsor ${i+1}`} style={{ height: 40, objectFit: 'contain' }} />
+              ))}
+            </div>
           ) : <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1 }}>[CO-TITLE SPONSOR]</div>}
         </div>
 
@@ -1157,16 +1165,45 @@ function FooterSettingsModal({ onClose, settings, onSaved }) {
     setLoading(true)
     try {
       const updates = {}
-      if (files.title_logo) updates.title_logo = await uploadFile(files.title_logo, 'sponsors')
-      if (files.co_title_logo) updates.co_title_logo = await uploadFile(files.co_title_logo, 'sponsors')
-      if (files.bricx_logo) updates.bricx_logo = await uploadFile(files.bricx_logo, 'sponsors')
       
-      const { error } = await supabase.from('settings').update(updates).eq('id', 1)
-      if (error) throw error
-      showToast('Logos updated', 'success')
+      if (files.bricx_logo) {
+        updates.bricx_logo = await uploadFile(files.bricx_logo, 'sponsors')
+      }
+      
+      for (const key of ['title_logo', 'co_title_logo']) {
+        if (files[key]) {
+          const uploadedUrl = await uploadFile(files[key], 'sponsors')
+          const existing = settings?.[key] ? settings[key].split(',') : []
+          updates[key] = [...existing, uploadedUrl].join(',')
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        const { error } = await supabase.from('settings').update(updates).eq('id', 1)
+        if (error) throw error
+        showToast('Logos updated', 'success')
+      }
       onSaved()
     } catch(err) {
       showToast('Error: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRemove(key, urlToRemove) {
+    try {
+      setLoading(true)
+      if (key === 'bricx_logo') {
+        await supabase.from('settings').update({ [key]: null }).eq('id', 1);
+      } else {
+        const existing = settings?.[key] ? settings[key].split(',') : [];
+        const updated = existing.filter(u => u !== urlToRemove);
+        await supabase.from('settings').update({ [key]: updated.length > 0 ? updated.join(',') : null }).eq('id', 1);
+      }
+      onSaved();
+    } catch (err) {
+      showToast('Error removing logo: ' + err.message, 'error')
     } finally {
       setLoading(false)
     }
@@ -1180,19 +1217,28 @@ function FooterSettingsModal({ onClose, settings, onSaved }) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {['title_logo', 'co_title_logo', 'bricx_logo'].map(key => (
-            <div key={key} className="form-group">
-              <label className="form-label">{key.replace('_', ' ').toUpperCase()}</label>
-              <input type="file" accept="image/*" onChange={e => setFiles(f => ({ ...f, [key]: e.target.files[0] }))} className="form-input" style={{ padding: 8 }} />
-              {settings?.[key] && !files[key] && <img src={settings[key]} alt="current" style={{ height: 40, marginTop: 8, objectFit: 'contain' }} />}
-              {settings?.[key] && (
-                <button type="button" onClick={async () => {
-                   await supabase.from('settings').update({ [key]: null }).eq('id', 1);
-                   onSaved();
-                }} style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, marginTop: 4 }}>Remove current</button>
-              )}
-            </div>
-          ))}
+          {['title_logo', 'co_title_logo', 'bricx_logo'].map(key => {
+            const isMultiple = key !== 'bricx_logo';
+            const currentUrls = settings?.[key] ? (isMultiple ? settings[key].split(',') : [settings[key]]) : [];
+            
+            return (
+              <div key={key} className="form-group">
+                <label className="form-label">{key.replace('_', ' ').toUpperCase()} {isMultiple ? '(Add multiple)' : ''}</label>
+                <input type="file" accept="image/*" onChange={e => setFiles(f => ({ ...f, [key]: e.target.files[0] }))} className="form-input" style={{ padding: 8 }} />
+                
+                {currentUrls.length > 0 && (
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+                    {currentUrls.map((url, i) => (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <img src={url} alt="current" style={{ height: 40, objectFit: 'contain' }} />
+                        <button type="button" disabled={loading} onClick={() => handleRemove(key, url)} style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, marginTop: 4 }}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving...' : 'Upload & Save'}</button>

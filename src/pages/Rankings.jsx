@@ -2,20 +2,17 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
-import { roleColors } from '../constants'
 
 export default function Rankings() {
   const { activeAuction } = useApp()
   const navigate = useNavigate()
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('all')
+  const [tab, setTab] = useState('sold')
 
   useEffect(() => {
     if (!activeAuction) return
-
     loadRankings()
-
     const channel = supabase
       .channel(`rankings-live-${activeAuction.id}`)
       .on('postgres_changes', {
@@ -23,7 +20,6 @@ export default function Rankings() {
         filter: `auction_id=eq.${activeAuction.id}`,
       }, () => loadRankings())
       .subscribe()
-
     return () => supabase.removeChannel(channel)
   }, [activeAuction])
 
@@ -38,15 +34,25 @@ export default function Rankings() {
     setLoading(false)
   }
 
-  const soldPlayers = players.filter(p => p.status === 'sold')
-  const allPlayers = players.filter(p => p.base_price > 0)
+  const getRankedPlayers = (list) => {
+    let rank = 1
+    let prevPrice = null
+    return list.map((p) => {
+      const price = p.status === 'sold' ? (p.sold_price || 0) : -1
+      if (prevPrice !== null && price < prevPrice) rank++
+      prevPrice = price
+      return { ...p, computedRank: rank }
+    })
+  }
+
+  const soldPlayers = getRankedPlayers(players.filter(p => p.status === 'sold'))
+  const allPlayers = getRankedPlayers(players.filter(p => p.base_price > 0))
   const displayed = tab === 'all' ? allPlayers : soldPlayers
 
-  const totalSpent = soldPlayers.reduce((s, p) => s + (p.sold_price || 0), 0)
-  const teamsCount = [...new Set(soldPlayers.filter(p => p.team_id).map(p => p.team_id))].length
-
-  const top3 = soldPlayers.slice(0, 3)
-  const rest = soldPlayers.slice(3)
+  const rank1Players = soldPlayers.filter(p => p.computedRank === 1)
+  const rank2Players = soldPlayers.filter(p => p.computedRank === 2)
+  const rank3Players = soldPlayers.filter(p => p.computedRank === 3)
+  const rest = displayed.filter(p => p.computedRank > 3)
 
   if (!activeAuction) {
     return (
@@ -61,29 +67,18 @@ export default function Rankings() {
   }
 
   return (
-    <div className="page-content">
-      {/* Stats Row Removed */}
-
-
+    <div className="page-content rankings-page">
       {/* Page title */}
       <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-title">RANKINGS</h1>
       </div>
 
-      {/* Underline tabs */}
+      {/* Tabs */}
       <div className="tab-underline-row">
-        <button
-          className={`tab-underline${tab === 'all' ? ' active' : ''}`}
-          onClick={() => setTab('all')}
-          id="tab-all"
-        >
+        <button className={`tab-underline${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')} id="tab-all">
           ALL PLAYERS
         </button>
-        <button
-          className={`tab-underline${tab === 'sold' ? ' active' : ''}`}
-          onClick={() => setTab('sold')}
-          id="tab-sold"
-        >
+        <button className={`tab-underline${tab === 'sold' ? ' active' : ''}`} onClick={() => setTab('sold')} id="tab-sold">
           SOLD PLAYERS
         </button>
       </div>
@@ -98,228 +93,188 @@ export default function Rankings() {
         </div>
       ) : (
         <>
-          {/* Top 3 Podium */}
-          {tab === 'sold' && top3.length > 0 && (
-            <div className="rankings-podium-wrapper" style={{
-              minHeight: 'calc(100vh - 180px)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              paddingBottom: 24
-            }}>
-              <div className="rankings-podium" style={{ 
-                display: 'flex', 
-                alignItems: 'flex-end', 
-                justifyContent: 'center', 
-                gap: 16,
-              }}>
-                {/* 2nd place */}
-                {top3[1] && (
-                  <PodiumCard player={top3[1]} rank={2} onClick={() => navigate(`/players/${top3[1].id}`)} />
-                )}
-                {/* 1st place */}
-                {top3[0] && (
-                  <PodiumCard player={top3[0]} rank={1} onClick={() => navigate(`/players/${top3[0].id}`)} />
-                )}
-                {/* 3rd place */}
-                {top3[2] && (
-                  <PodiumCard player={top3[2]} rank={3} onClick={() => navigate(`/players/${top3[2].id}`)} />
-                )}
-              </div>
-              {rest.length > 0 && (
-                <div style={{ marginTop: 40, color: 'var(--text-muted)', fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
-                  <span style={{ letterSpacing: 1 }}>SCROLL FOR MORE</span>
-                  <span style={{ marginTop: 4 }}>▼</span>
+          {/* ── PODIUM SECTION ── */}
+          {tab === 'sold' && rank1Players.length > 0 && (
+            <div className="rk-podium-scene">
+              {/* Decorative glow backdrop */}
+              <div className="rk-podium-glow" />
+
+              <div className="rk-podium-stage">
+                {/* ── RANK 2 (left column) ── */}
+                <div className="rk-podium-col rk-col-2">
+                  <div className="rk-podium-players">
+                    {rank2Players.length > 0 ? rank2Players.map(p => (
+                      <PodiumPlayerCard key={p.id} player={p} rank={2} onClick={() => navigate(`/players/${p.id}`)} />
+                    )) : (
+                      <div className="rk-podium-empty-col" />
+                    )}
+                  </div>
+                  <div className="rk-podium-block rk-block-2">
+                    <span className="rk-block-rank">2</span>
+                  </div>
                 </div>
-              )}
+
+                {/* ── RANK 1 (center column, tallest) ── */}
+                <div className="rk-podium-col rk-col-1">
+                  <div className="rk-crown">👑</div>
+                  <div className="rk-podium-players">
+                    {rank1Players.map(p => (
+                      <PodiumPlayerCard key={p.id} player={p} rank={1} onClick={() => navigate(`/players/${p.id}`)} />
+                    ))}
+                  </div>
+                  <div className="rk-podium-block rk-block-1">
+                    <span className="rk-block-rank">1</span>
+                  </div>
+                </div>
+
+                {/* ── RANK 3 (right column) ── */}
+                <div className="rk-podium-col rk-col-3">
+                  <div className="rk-podium-players">
+                    {rank3Players.length > 0 ? rank3Players.map(p => (
+                      <PodiumPlayerCard key={p.id} player={p} rank={3} onClick={() => navigate(`/players/${p.id}`)} />
+                    )) : (
+                      <div className="rk-podium-empty-col" />
+                    )}
+                  </div>
+                  <div className="rk-podium-block rk-block-3">
+                    <span className="rk-block-rank">3</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Rankings Table */}
-          <div className="rankings-table">
-            {/* Header */}
-            <div className="rankings-table-header">
-              <span>Rank</span>
-              <span>Player</span>
-              <span>Team</span>
-              <span style={{ textAlign: 'right' }}>Final Bid</span>
-            </div>
+          {/* ── REST OF TABLE ── */}
+          {(tab === 'sold' ? rest : displayed).length > 0 && (
+            <div className="rk-table-section">
+              {tab === 'sold' && rest.length > 0 && (
+                <div className="rk-table-divider">
+                  <div className="rk-table-divider-line" />
+                  <span className="rk-table-divider-label">MORE PLAYERS</span>
+                  <div className="rk-table-divider-line" />
+                </div>
+              )}
+              <div className="rk-table">
+                {(tab === 'sold' ? rest : displayed).map((player) => (
+                  <div
+                    key={player.id}
+                    className="rk-table-row"
+                    onClick={() => navigate(`/players/${player.id}`)}
+                  >
+                    {/* Rank */}
+                    <div className="rk-row-rank">
+                      <span>{player.computedRank}</span>
+                    </div>
 
-            {(tab === 'sold' ? rest : displayed).map((player, idx) => {
-              const rankNum = tab === 'sold' ? idx + 4 : idx + 1
-              return (
-                <div
-                  key={player.id}
-                  className="rankings-table-row"
-                  onClick={() => navigate(`/players/${player.id}`)}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>{rankNum}</div>
+                    {/* Photo */}
+                    <div className="rk-row-photo">
+                      {player.photo_url
+                        ? <img src={player.photo_url} alt={player.name} />
+                        : <div className="rk-row-photo-placeholder">👤</div>
+                      }
+                    </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    {player.photo_url ? (
-                      <img src={player.photo_url} alt={player.name} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>👤</div>
-                    )}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</div>
+                    {/* Info */}
+                    <div className="rk-row-info">
+                      <div className="rk-row-name">{player.name}</div>
+                      <div className="rk-row-meta">
+                        {player.teams && (
+                          <span className="rk-row-team" style={{ color: player.teams.color || 'var(--text-muted)' }}>
+                            {player.teams.name}
+                          </span>
+                        )}
+                        {player.role && (
+                          <span className="rk-row-role">{player.role}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Price */}
+                    <div className="rk-row-price">
+                      {player.status === 'sold'
+                        ? `₹${player.sold_price}L`
+                        : <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>₹{player.base_price}L base</span>
+                      }
                     </div>
                   </div>
-
-                  <div style={{ fontSize: 11, minWidth: 0 }}>
-                    {player.teams ? (
-                      <span style={{ color: player.teams.color || 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>
-                        {player.teams.name}
-                      </span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>—</span>
-                    )}
-                  </div>
-
-                  <div style={{ fontWeight: 700, color: 'var(--gold)', fontSize: 12, textAlign: 'right' }}>
-                    {player.status === 'sold' ? `₹${player.sold_price}L` : `₹${player.base_price}L`}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
   )
 }
 
-function PodiumCard({ player, rank, onClick }) {
-  const isFirst = rank === 1
+/* ── PODIUM PLAYER CARD ── */
+const rankConfig = {
+  1: {
+    badge: 'linear-gradient(135deg, #f5a623, #ffd066)',
+    badgeText: '#000',
+    border: 'rgba(245,166,35,0.55)',
+    glow: '0 0 32px rgba(245,166,35,0.28)',
+    bg: 'linear-gradient(170deg, rgba(245,166,35,0.14) 0%, rgba(245,166,35,0.04) 100%)',
+    priceColor: 'var(--gold)',
+  },
+  2: {
+    badge: 'linear-gradient(135deg, #c0c8d8, #9ca3af)',
+    badgeText: '#000',
+    border: 'rgba(156,163,175,0.45)',
+    glow: '0 0 20px rgba(156,163,175,0.15)',
+    bg: 'linear-gradient(170deg, rgba(156,163,175,0.12) 0%, rgba(156,163,175,0.03) 100%)',
+    priceColor: '#c0c8d8',
+  },
+  3: {
+    badge: 'linear-gradient(135deg, #e8a96a, #cd7f32)',
+    badgeText: '#fff',
+    border: 'rgba(205,127,50,0.45)',
+    glow: '0 0 20px rgba(205,127,50,0.15)',
+    bg: 'linear-gradient(170deg, rgba(205,127,50,0.12) 0%, rgba(205,127,50,0.03) 100%)',
+    priceColor: '#e8a96a',
+  },
+}
 
-  const configs = {
-    1: {
-      bg: 'linear-gradient(180deg, rgba(245,166,35,0.18) 0%, rgba(245,166,35,0.05) 100%)',
-      border: 'rgba(245,166,35,0.4)',
-      glow: '0 8px 32px rgba(245,166,35,0.25)',
-      rankBg: '#f5a623',
-      rankColor: '#000',
-      badgeBg: 'rgba(245,166,35,0.15)',
-      badgeColor: 'var(--gold)',
-    },
-    2: {
-      bg: 'linear-gradient(180deg, rgba(156,163,175,0.15) 0%, rgba(156,163,175,0.04) 100%)',
-      border: 'rgba(156,163,175,0.35)',
-      glow: '0 8px 24px rgba(156,163,175,0.15)',
-      rankBg: '#9ca3af',
-      rankColor: '#000',
-      badgeBg: 'rgba(156,163,175,0.15)',
-      badgeColor: '#9ca3af',
-    },
-    3: {
-      bg: 'linear-gradient(180deg, rgba(205,127,50,0.15) 0%, rgba(205,127,50,0.04) 100%)',
-      border: 'rgba(205,127,50,0.35)',
-      glow: '0 8px 24px rgba(205,127,50,0.15)',
-      rankBg: '#cd7f32',
-      rankColor: '#fff',
-      badgeBg: 'rgba(205,127,50,0.15)',
-      badgeColor: '#cd7f32',
-    },
-  }
-
-  const c = configs[rank]
-
+function PodiumPlayerCard({ player, rank, onClick }) {
+  const c = rankConfig[rank] || rankConfig[3]
   return (
-    <div
-      className={`podium-card ${isFirst ? 'podium-first' : 'podium-other'}`}
-      style={{
-        flex: 1,
-        maxWidth: isFirst ? 280 : 220,
-        minWidth: isFirst ? 200 : 160,
-        background: c.bg,
-        border: `1px solid ${c.border}`,
-        boxShadow: c.glow,
-        transform: isFirst ? 'translateY(-30px)' : 'none',
-        paddingTop: 30,
-        borderRadius: 24,
-        position: 'relative',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 24,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-      }}
-      onClick={onClick}
+    <div className={`rk-player-card rk-rank-${rank}`} onClick={onClick}
+      style={{ background: c.bg, border: `1.5px solid ${c.border}`, boxShadow: c.glow }}
     >
       {/* Rank badge */}
-      <div className="podium-rank-badge" style={{ 
-        background: c.rankBg, color: c.rankColor, 
-        width: 32, height: 32, fontSize: 16, 
-        position: 'absolute', top: -16, borderRadius: '50%', 
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' 
-      }}>
+      <div className="rk-card-rank-badge" style={{ background: c.badge, color: c.badgeText }}>
         {rank}
       </div>
 
       {/* Photo */}
-      {player.photo_url ? (
-        <img
-          src={player.photo_url}
-          alt={player.name}
-          className="podium-photo"
-          style={{
-            width: isFirst ? '60%' : '55%',
-            aspectRatio: '1',
-            borderRadius: '50%',
-            objectFit: 'cover',
-            border: `4px solid ${c.border}`,
-            marginBottom: 16,
-            maxWidth: isFirst ? 140 : 110,
-            minWidth: isFirst ? 100 : 80,
-          }}
-        />
-      ) : (
-        <div
-          className="podium-photo-placeholder"
-          style={{
-            width: isFirst ? '60%' : '55%',
-            aspectRatio: '1',
-            maxWidth: isFirst ? 140 : 110,
-            minWidth: isFirst ? 100 : 80,
-            borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'var(--bg-secondary)',
-            border: `4px solid ${c.border}`,
-            marginBottom: 16,
-            fontSize: isFirst ? 48 : 36,
-          }}
-        >
-          👤
-        </div>
-      )}
+      <div className="rk-card-photo-wrap" style={{ borderColor: c.border }}>
+        {player.photo_url
+          ? <img src={player.photo_url} alt={player.name} className="rk-card-photo" />
+          : <div className="rk-card-photo-placeholder">👤</div>
+        }
+      </div>
 
       {/* Name */}
-      <div className="podium-name" style={{ fontSize: isFirst ? 20 : 16, padding: '0 12px', textAlign: 'center', wordBreak: 'break-word', fontWeight: 800, fontFamily: 'Rajdhani', letterSpacing: 1 }}>
-        {player.name}
-      </div>
+      <div className="rk-card-name">{player.name}</div>
 
       {/* Team */}
       {player.teams && (
-        <div className="podium-team" style={{ color: player.teams.color || 'var(--text-muted)', padding: '0 8px', marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: 14 }}>🏆</span>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>{player.teams.name}</span>
+        <div className="rk-card-team" style={{ color: player.teams.color || 'var(--text-muted)' }}>
+          🏆 {player.teams.name}
         </div>
       )}
 
       {/* Price */}
-      <div className="podium-price" style={{ fontSize: isFirst ? 24 : 20, marginTop: 12, fontWeight: 900, color: 'var(--gold)', fontFamily: 'Rajdhani' }}>
+      <div className="rk-card-price" style={{ color: c.priceColor }}>
         ₹{player.sold_price}L
       </div>
 
-      {/* Role badge */}
-      <div
-        className="podium-role-badge"
-        style={{ 
-          background: c.badgeBg, color: c.badgeColor, border: `1px solid ${c.border}`, 
-          fontSize: 11, fontWeight: 800, padding: '4px 12px', borderRadius: 16, marginTop: 16, letterSpacing: 1 
-        }}
-      >
-        {player.role?.toUpperCase()}
-      </div>
+      {/* Role */}
+      {player.role && (
+        <div className="rk-card-role" style={{ borderColor: c.border, color: c.priceColor }}>
+          {player.role.toUpperCase()}
+        </div>
+      )}
     </div>
   )
 }
