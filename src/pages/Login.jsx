@@ -116,20 +116,22 @@ export default function Login() {
   }
 
   return (
-    <div className="login-page" style={{ background: '#000000' }}>
+    <div className="login-page" style={{ background: '#000000', position: 'relative' }}>
+      <button 
+        onClick={() => navigate('/')} 
+        style={{ position: 'absolute', top: 20, left: 20, background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}
+      >
+        <span>←</span> Back
+      </button>
       <div className="login-card" style={{ background: '#0a0a0c', borderColor: 'rgba(255,255,255,0.08)' }}>
         {/* Logo */}
         <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
           <img
             src="/cricauction-logo.jpeg"
-            alt="CricAuction Powered by BRICX"
+            alt="CricAuction"
             style={{ width: 140, height: 'auto', borderRadius: 14, boxShadow: '0 8px 28px rgba(0,0,0,0.6)' }}
           />
         </div>
-
-        <h1 style={{ fontFamily: 'Rajdhani', fontSize: 28, fontWeight: 800, marginBottom: 6, color: '#ffffff', letterSpacing: 1 }}>
-          ELITE LEAGUE
-        </h1>
         <p style={{ color: '#8892a4', marginBottom: 28, fontSize: 13, lineHeight: 1.5 }}>
           {isSignUp ? 'Create a new account to get started' : 'Sign in to access your auctions'}
         </p>
@@ -224,8 +226,8 @@ export default function Login() {
         </div>
 
         {/* Powered by */}
-        <div style={{ marginTop: 24, opacity: 0.45, fontSize: 10, letterSpacing: 1, color: '#4a5568', textTransform: 'uppercase' }}>
-          Powered by BricX
+        <div style={{ marginTop: 24, opacity: 0.9, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, fontSize: 10, letterSpacing: 1, color: '#4a5568', textTransform: 'uppercase' }}>
+          Powered by <img src="/bricx-logo.png" alt="BricX" style={{ height: 44, width: 'auto' }} />
         </div>
       </div>
 

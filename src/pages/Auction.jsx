@@ -430,8 +430,8 @@ export default function Auction() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Digital Sponsor</div>
           {settings?.bricx_logo ? (
-            <img src={settings.bricx_logo} alt="BricX" style={{ height: 40, objectFit: 'contain' }} />
-          ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 40, objectFit: 'contain' }} />}
+            <img src={settings.bricx_logo} alt="BricX" style={{ height: 60, objectFit: 'contain' }} />
+          ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 60, objectFit: 'contain' }} />}
         </div>
       </div>
 

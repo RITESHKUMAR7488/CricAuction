@@ -55,10 +55,6 @@ export default function Dashboard() {
         <div className="dashboard-brand">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img src="/cricauction-logo.jpeg" alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }} />
-            <div>
-              <div style={{ fontFamily: 'Rajdhani', fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: 1 }}>ELITE LEAGUE</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: 0.5 }}>Auction Management Platform</div>
-            </div>
           </div>
         </div>
         <button
@@ -215,9 +211,8 @@ export default function Dashboard() {
         </div>
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', padding: '16px 0 32px', opacity: 0.5 }}>
-          <img src="/cricauction-logo.jpeg" alt="Powered by BRICX" style={{ width: 48, borderRadius: 8, marginBottom: 8 }} />
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 1 }}>POWERED BY BRICX</div>
+        <div style={{ textAlign: 'center', padding: '16px 0 32px', opacity: 0.9 }}>
+          <img src="/bricx-logo.png" alt="Powered by BricX" style={{ width: 160, height: 'auto', marginBottom: 8 }} />
         </div>
       </div>
     </div>

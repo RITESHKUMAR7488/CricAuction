@@ -199,7 +199,9 @@ export default function Landing() {
       {/* Footer */}
       <footer className="lp-footer">
         <img src="/cricauction-logo.jpeg" alt="CricAuction" className="lp-footer-logo" />
-        <span className="lp-footer-text">© {new Date().getFullYear()} CricAuction · Powered by BricX</span>
+        <span className="lp-footer-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          © {new Date().getFullYear()} CricAuction · Powered by <img src="/bricx-logo.png" alt="BricX" style={{ height: 40, width: 'auto' }} />
+        </span>
       </footer>
     </div>
   )

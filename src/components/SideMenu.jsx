@@ -80,31 +80,6 @@ export default function SideMenu({ onClose }) {
   return (
     <div className="menu-overlay">
       <div className="menu-backdrop" onClick={onClose} style={{ zIndex: 1 }} />
-      
-      <div style={{
-        position: 'absolute',
-        left: '10%',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        display: 'flex',
-        flexDirection: 'column',
-        pointerEvents: 'none',
-        zIndex: 2,
-        opacity: 0.5,
-      }}>
-        <div style={{ fontSize: 'min(8vw, 70px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '8px', color: '#ffffff', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
-          POWERED
-        </div>
-        <div style={{ fontSize: 'min(8vw, 70px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '8px', color: '#ffffff', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', marginBottom: 12 }}>
-          BY
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ fontSize: 'min(9vw, 80px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '10px', color: '#ffffff', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
-            BRICX
-          </div>
-          <img src="/bricx-logo.png" alt="BricX" style={{ height: 'min(8vw, 70px)', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
-        </div>
-      </div>
 
       <div className="menu-panel" style={{ zIndex: 3 }}>
         <button 
