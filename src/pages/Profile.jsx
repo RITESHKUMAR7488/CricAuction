@@ -71,110 +71,162 @@ function YouTubeCard({ video, onDelete, canDelete }) {
 // ─── FoodCouponCard ───────────────────────────────────────────────────────────
 
 function FoodCouponCard({ coupon, recipientId, onDelete }) {
+  const [showLargeQR, setShowLargeQR] = useState(false)
   const qrData = JSON.stringify({ couponId: coupon.coupon_id, userId: coupon.user_id })
   const isRedeemed = coupon.redeemed
 
   return (
-    <div style={{
-      background: isRedeemed
-        ? 'linear-gradient(135deg, rgba(30,30,40,0.95) 0%, rgba(20,20,30,0.95) 100%)'
-        : 'linear-gradient(135deg, rgba(20,40,80,0.95) 0%, rgba(10,20,50,0.95) 100%)',
-      border: `2px solid ${isRedeemed ? 'rgba(100,100,120,0.3)' : 'rgba(74,158,255,0.35)'}`,
-      borderRadius: 18,
-      overflow: 'hidden',
-      position: 'relative',
-      opacity: isRedeemed ? 0.75 : 1,
-    }}>
-      {/* Dashed divider line (INOX ticket style) */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0, top: '50%',
-        borderTop: '2px dashed rgba(255,255,255,0.08)',
-        zIndex: 1,
-      }} />
-      {/* Left cutout */}
-      <div style={{
-        position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)',
-        width: 20, height: 20, borderRadius: '50%',
-        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-      }} />
-      {/* Right cutout */}
-      <div style={{
-        position: 'absolute', right: -10, top: '50%', transform: 'translateY(-50%)',
-        width: 20, height: 20, borderRadius: '50%',
-        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-      }} />
+    <>
+      <div 
+        onClick={() => !isRedeemed && setShowLargeQR(true)}
+        style={{
+        background: isRedeemed
+          ? 'linear-gradient(135deg, rgba(30,30,40,0.95) 0%, rgba(20,20,30,0.95) 100%)'
+          : 'linear-gradient(135deg, rgba(20,40,80,0.95) 0%, rgba(10,20,50,0.95) 100%)',
+        border: `2px solid ${isRedeemed ? 'rgba(100,100,120,0.3)' : 'rgba(74,158,255,0.35)'}`,
+        borderRadius: 18,
+        overflow: 'hidden',
+        position: 'relative',
+        opacity: isRedeemed ? 0.75 : 1,
+        cursor: isRedeemed ? 'default' : 'pointer',
+      }}>
+        {/* Dashed divider line (INOX ticket style) */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: '50%',
+          borderTop: '2px dashed rgba(255,255,255,0.08)',
+          zIndex: 1,
+        }} />
+        {/* Left cutout */}
+        <div style={{
+          position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)',
+          width: 20, height: 20, borderRadius: '50%',
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+        }} />
+        {/* Right cutout */}
+        <div style={{
+          position: 'absolute', right: -10, top: '50%', transform: 'translateY(-50%)',
+          width: 20, height: 20, borderRadius: '50%',
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+        }} />
 
-      {/* Top section — event info */}
-      <div style={{ padding: '18px 20px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase',
-            letterSpacing: 1.5, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4,
-          }}><Utensils size={10} /> Food Coupon</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', fontFamily: 'Rajdhani', letterSpacing: 0.5, marginBottom: 4 }}>
-            {coupon.food_coupons?.event_name || 'Event'}
+        {/* Top section — event info */}
+        <div style={{ padding: '18px 20px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase',
+              letterSpacing: 1.5, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4,
+            }}><Utensils size={10} /> Food Coupon</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', fontFamily: 'Rajdhani', letterSpacing: 0.5, marginBottom: 4 }}>
+              {coupon.food_coupons?.event_name || 'Event'}
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{
+                background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.3)',
+                borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, color: 'var(--gold)',
+              }}>
+                {coupon.food_coupons?.meal_type}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {coupon.food_coupons?.coupon_date
+                  ? new Date(coupon.food_coupons.coupon_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : ''}
+              </span>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{
-              background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.3)',
-              borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, color: 'var(--gold)',
-            }}>
-              {coupon.food_coupons?.meal_type}
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {coupon.food_coupons?.coupon_date
-                ? new Date(coupon.food_coupons.coupon_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                : ''}
-            </span>
+
+          {/* QR Code */}
+          <div style={{
+            background: '#fff', borderRadius: 10, padding: 8,
+            flexShrink: 0, marginLeft: 12,
+            opacity: isRedeemed ? 0.4 : 1,
+            filter: isRedeemed ? 'grayscale(1)' : 'none',
+          }}>
+            <QRCodeSVG value={qrData} size={80} level="M" />
           </div>
         </div>
 
-        {/* QR Code */}
+        {/* Bottom section — status */}
         <div style={{
-          background: '#fff', borderRadius: 10, padding: 8,
-          flexShrink: 0, marginLeft: 12,
-          opacity: isRedeemed ? 0.4 : 1,
-          filter: isRedeemed ? 'grayscale(1)' : 'none',
+          padding: '12px 20px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderTop: '1px dashed rgba(255,255,255,0.06)',
         }}>
-          <QRCodeSVG value={qrData} size={80} level="M" />
+          {isRedeemed ? (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <CheckCircle size={14} /> REDEEMED
+              </div>
+              {coupon.redeemed_at && (
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                  {new Date(coupon.redeemed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+              Tap anywhere to enlarge QR
+            </div>
+          )}
+
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(recipientId); }}
+            style={{
+              background: 'transparent', border: '1px solid rgba(255,80,80,0.3)',
+              borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+              color: 'var(--red)', fontSize: 11, fontWeight: 600,
+            }}
+          >
+            Delete
+          </button>
         </div>
       </div>
 
-      {/* Bottom section — status */}
-      <div style={{
-        padding: '12px 20px 16px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderTop: '1px dashed rgba(255,255,255,0.06)',
-      }}>
-        {isRedeemed ? (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <CheckCircle size={14} /> REDEEMED
-            </div>
-            {coupon.redeemed_at && (
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-                {new Date(coupon.redeemed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-            Show this QR at the venue
-          </div>
-        )}
-
-        <button
-          onClick={() => onDelete(recipientId)}
+      {/* Large QR Modal */}
+      {showLargeQR && (
+        <div 
+          onClick={() => setShowLargeQR(false)}
           style={{
-            background: 'transparent', border: '1px solid rgba(255,80,80,0.3)',
-            borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
-            color: 'var(--red)', fontSize: 11, fontWeight: 600,
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20, flexDirection: 'column'
           }}
         >
-          Delete
-        </button>
-      </div>
-    </div>
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: 24, padding: 32,
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)', width: '100%', maxWidth: 360
+            }}
+          >
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#111', fontFamily: 'Rajdhani', marginBottom: 4, textAlign: 'center' }}>
+              {coupon.food_coupons?.event_name || 'Event'}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#666', marginBottom: 24, textTransform: 'uppercase', letterSpacing: 1 }}>
+              {coupon.food_coupons?.meal_type} COUPON
+            </div>
+            
+            <QRCodeSVG value={qrData} size={240} level="M" />
+            
+            <div style={{ marginTop: 24, fontSize: 14, color: '#888', textAlign: 'center' }}>
+              Show this QR code to the host<br/>for scanning
+            </div>
+          </div>
+          
+          <button 
+            onClick={() => setShowLargeQR(false)}
+            style={{
+              marginTop: 24, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 50, padding: '12px 32px', color: '#fff', fontSize: 16, fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            Close
+          </button>
+        </div>
+      )}
+    </>
   )
 }
 
