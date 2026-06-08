@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { Zap, Trophy, Target, BarChart2, Shield, Users2 } from 'lucide-react'
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -78,7 +79,7 @@ export default function Landing() {
 
         {/* Left column: content */}
         <div className="lp-left">
-          <div className="lp-pill">⚡ LIVE AUCTION PLATFORM</div>
+          <div className="lp-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Zap size={12} /> LIVE AUCTION PLATFORM</div>
 
           <h1 className="lp-h1">
             The Ultimate<br />
@@ -151,7 +152,7 @@ export default function Landing() {
 
           <div className="lp-fc lp-fc-bottom">
             <div className="lp-fc-row">
-              <div className="lp-fc-avatar">🏆</div>
+              <div className="lp-fc-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={20} color="var(--gold)" /></div>
               <div>
                 <div className="lp-fc-name">Auction Progress</div>
                 <div className="lp-fc-sub">Player 47 of 150</div>
@@ -172,25 +173,25 @@ export default function Landing() {
       {/* Feature strip */}
       <div className="lp-features">
         <div className="lp-feature">
-          <div className="lp-feature-icon">🎯</div>
+          <div className="lp-feature-icon" style={{ display: 'flex', justifyContent: 'center' }}><Target size={28} color="var(--gold)" /></div>
           <div className="lp-feature-title">Smart Bidding</div>
           <div className="lp-feature-desc">Real-time bid management with auto purse deduction</div>
         </div>
         <div className="lp-feature-divider" />
         <div className="lp-feature">
-          <div className="lp-feature-icon">📊</div>
+          <div className="lp-feature-icon" style={{ display: 'flex', justifyContent: 'center' }}><BarChart2 size={28} color="var(--blue)" /></div>
           <div className="lp-feature-title">Deep Analytics</div>
           <div className="lp-feature-desc">Player stats, rankings & performance dashboards</div>
         </div>
         <div className="lp-feature-divider" />
         <div className="lp-feature">
-          <div className="lp-feature-icon">🛡️</div>
+          <div className="lp-feature-icon" style={{ display: 'flex', justifyContent: 'center' }}><Shield size={28} color="var(--green)" /></div>
           <div className="lp-feature-title">Team Builder</div>
           <div className="lp-feature-desc">Manage squads, caps and player roles visually</div>
         </div>
         <div className="lp-feature-divider" />
         <div className="lp-feature">
-          <div className="lp-feature-icon">🤝</div>
+          <div className="lp-feature-icon" style={{ display: 'flex', justifyContent: 'center' }}><Users2 size={28} color="#9b59b6" /></div>
           <div className="lp-feature-title">Multiplayer</div>
           <div className="lp-feature-desc">Invite team owners with unique join codes</div>
         </div>

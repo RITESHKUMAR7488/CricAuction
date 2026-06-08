@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { CheckCircle, XCircle, Info } from 'lucide-react'
 
 let toastId = 0
 const listeners = []
@@ -25,11 +26,17 @@ export default function ToastContainer() {
     }
   }, [])
 
+  const IconMap = {
+    success: <CheckCircle size={16} />,
+    error: <XCircle size={16} />,
+    info: <Info size={16} />,
+  }
+
   return (
     <div className="toast-container">
       {toasts.map(t => (
         <div key={t.id} className={`toast ${t.type}`}>
-          <span>{t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : 'ℹ️'}</span>
+          <span style={{ display: 'flex', alignItems: 'center' }}>{IconMap[t.type] || IconMap.info}</span>
           {t.message}
         </div>
       ))}

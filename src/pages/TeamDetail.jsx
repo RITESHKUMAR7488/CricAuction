@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
 import { roleColors } from '../constants'
+import { CategoryBadge, CATEGORY_META } from './Players'
+import { Shield, User } from 'lucide-react'
 
 export default function TeamDetail() {
   const { id } = useParams()
@@ -47,7 +49,13 @@ export default function TeamDetail() {
       .eq('team_id', id)
       .eq('status', 'sold')
       .order('sold_price', { ascending: false })
-    setPlayers(playerData || [])
+    // Sort by category order: Retained → Platinum → Diamond → Gold
+    const sorted = (playerData || []).sort((a, b) => {
+      const aOrder = CATEGORY_META[a.category]?.order ?? 3
+      const bOrder = CATEGORY_META[b.category]?.order ?? 3
+      return aOrder - bOrder
+    })
+    setPlayers(sorted)
     setLoading(false)
   }
 
@@ -93,7 +101,9 @@ export default function TeamDetail() {
           {team.logo_url ? (
             <img src={team.logo_url} alt={team.name} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover' }} />
           ) : (
-            <div style={{ width: 72, height: 72, borderRadius: 14, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>🛡️</div>
+            <div style={{ width: 72, height: 72, borderRadius: 14, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Shield size={36} color={team.color} />
+          </div>
           )}
           <div>
             <div style={{ fontFamily: 'Rajdhani', fontSize: 24, fontWeight: 800, letterSpacing: 1 }}>{team.name}</div>
@@ -150,7 +160,7 @@ export default function TeamDetail() {
 
       {players.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon">👤</div>
+          <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center' }}><User size={32} color="var(--text-muted)" /></div>
           <div className="empty-state-title">No Players Yet</div>
           <div className="empty-state-desc">Players will appear here after they are sold to this team in the auction.</div>
         </div>
@@ -165,12 +175,17 @@ export default function TeamDetail() {
             {player.photo_url ? (
               <img src={player.photo_url} alt={player.name} style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover' }} />
             ) : (
-              <div style={{ width: 48, height: 48, borderRadius: 10, background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>👤</div>
+              <div style={{ width: 48, height: 48, borderRadius: 10, background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <User size={24} color="var(--text-muted)" />
+              </div>
             )}
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontFamily: 'Rajdhani', fontSize: 16 }}>{player.name}</div>
-              <div style={{ fontSize: 12, color: roleColors[player.role] || 'var(--blue)' }}>{player.role}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{player.code}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: roleColors[player.role] || 'var(--blue)' }}>{player.role}</div>
+                <CategoryBadge category={player.category || 'Gold'} />
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{player.code}</div>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--gold)' }}>₹{player.sold_price}L</div>

@@ -1,12 +1,19 @@
 import React, { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
 import getCroppedImg from '../lib/cropImage'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { exportAuctionPDF, exportAuctionCSV } from '../lib/exportUtils'
 import { showToast } from './Toast'
+import {
+  Plus, RefreshCw, Pencil, Image, ImagePlay, Crown,
+  FileText, BarChart2, RotateCcw, Trash2, LogOut,
+  Camera, Check, Circle, LayoutDashboard
+} from 'lucide-react'
 
 export default function SideMenu({ onClose }) {
+  const navigate = useNavigate()
   const { leagueName, updateLeagueName, leagueLogo, updateLeagueLogo, updateBannerLogo, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole, clearActiveAuction } = useApp()
   const [view, setView] = useState('main') // main | rename | updatelogo | newauction | switchauction
   const [nameInput, setNameInput] = useState(activeAuction?.name || leagueName)
@@ -115,25 +122,25 @@ export default function SideMenu({ onClose }) {
 
         {view === 'main' && <>
           <div className="menu-item" onClick={() => { setView('newauction'); setAuctionName('') }} id="menu-create-auction">
-            <span>➕</span> Create New Auction
+            <Plus size={16} /> Create New Auction
           </div>
           <div className="menu-item" onClick={() => { setView('switchauction'); loadAuctions() }} id="menu-switch-auction">
-            <span>🔄</span> Switch Auction
+            <RefreshCw size={16} /> Switch Auction
           </div>
           <div className="menu-divider" />
           {userRole === 'host' && (
             <>
               <div className="menu-item" onClick={() => { setView('rename'); setNameInput(activeAuction?.name || leagueName) }} id="menu-rename-league">
-                <span>✏️</span> Rename {activeAuction ? 'Auction' : 'League'}
+                <Pencil size={16} /> Rename {activeAuction ? 'Auction' : 'League'}
               </div>
               <div className="menu-item" onClick={() => { setView('updatelogo'); setLogoInput(activeAuction?.logo_url || leagueLogo) }} id="menu-update-logo">
-                <span>🖼️</span> Update Logo
+                <Image size={16} /> Update Logo
               </div>
               <div className="menu-item" onClick={() => { setView('updatebanner'); }} id="menu-update-banner">
-                <span>🏙️</span> Update Banner
+                <ImagePlay size={16} /> Update Banner
               </div>
               <div className="menu-item" onClick={() => { setView('addhost'); setHostEmail('') }} id="menu-add-host">
-                <span>👑</span> Add Co-Host
+                <Crown size={16} /> Add Co-Host
               </div>
               <div className="menu-divider" />
             </>
@@ -155,7 +162,7 @@ export default function SideMenu({ onClose }) {
             }}
             id="menu-download-pdf"
           >
-            <span>📄</span>
+            <FileText size={16} />
             {loading ? 'Generating...' : 'Download PDF Report'}
           </div>
           <div
@@ -170,7 +177,7 @@ export default function SideMenu({ onClose }) {
             }}
             id="menu-download-csv"
           >
-            <span>📊</span>
+            <BarChart2 size={16} />
             {loading ? 'Exporting...' : 'Download CSV Files'}
           </div>
 
@@ -178,20 +185,23 @@ export default function SideMenu({ onClose }) {
             <>
               <div className="menu-divider" />
               <div className="menu-item danger" onClick={handleReset} id="menu-reset-auction">
-                <span>🔁</span> Reset Auction Data
+                <RotateCcw size={16} /> Reset Auction Data
               </div>
               <div className="menu-item danger" onClick={handleDeleteAuction} id="menu-delete-auction">
-                <span>🗑️</span> Delete Auction
+                <Trash2 size={16} /> Delete Auction
               </div>
             </>
           )}
 
           <div className="menu-divider" />
+          <div className="menu-item" onClick={() => { onClose(); navigate('/dashboard') }} id="menu-go-dashboard">
+            <LayoutDashboard size={16} /> Go to Dashboard
+          </div>
           <div className="menu-item" onClick={async () => {
             await supabase.auth.signOut()
             onClose()
           }} id="menu-logout">
-            <span>🚪</span> Log Out
+            <LogOut size={16} /> Log Out
           </div>
         </>}
 
@@ -237,7 +247,7 @@ export default function SideMenu({ onClose }) {
                 <img src={activeAuction?.logo_url || leagueLogo} alt="current logo" style={{ width: 80, height: 80, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
               )}
               <button className="btn btn-primary btn-sm" onClick={() => fileRef2.current?.click()} disabled={loading}>
-                {loading ? 'Uploading...' : '📷 Choose Photo'}
+                {loading ? 'Uploading...' : <><Camera size={14} style={{ marginRight: 6 }} />Choose Photo</>}
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
             </div>
@@ -264,7 +274,7 @@ export default function SideMenu({ onClose }) {
                     <img src={activeAuction?.banner_url} alt="current banner" style={{ width: '100%', height: 80, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
                   )}
                   <button className="btn btn-primary btn-sm" onClick={() => fileRef3.current?.click()} disabled={loading}>
-                    {loading ? 'Uploading...' : '📷 Choose Photo'}
+                    {loading ? 'Uploading...' : <><Camera size={14} style={{ marginRight: 6 }} />Choose Photo</>}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
                 </>
@@ -381,7 +391,10 @@ export default function SideMenu({ onClose }) {
                 onClick={() => { switchAuction(a); setView('main'); onClose(); }}
                 id={`switch-auction-${a.id}`}
               >
-                <span>{activeAuction?.id === a.id ? '✓' : '○'}</span>
+                {activeAuction?.id === a.id
+                  ? <Check size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
+                  : <Circle size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                }
                 <div>
                   <div style={{ fontWeight: 600 }}>{a.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>

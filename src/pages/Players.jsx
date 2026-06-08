@@ -6,6 +6,30 @@ import { showToast } from '../components/Toast'
 import PlayerFormModal from '../components/PlayerFormModal'
 import { ROLES, STYLES, roleColors } from '../constants'
 
+export const CATEGORY_META = {
+  Retained: { label: '🔒 Retained', color: '#9b59b6', order: 0 },
+  Platinum: { label: '💎 Platinum', color: '#4a9eff', order: 1 },
+  Diamond:  { label: '💠 Diamond',  color: '#00d4aa', order: 2 },
+  Gold:     { label: '🥇 Gold',     color: '#f5a623', order: 3 },
+}
+
+export function CategoryBadge({ category, style = {} }) {
+  const meta = CATEGORY_META[category] || CATEGORY_META.Gold
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3,
+      fontSize: 9, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
+      padding: '2px 7px', borderRadius: 20,
+      background: `${meta.color}22`,
+      border: `1px solid ${meta.color}55`,
+      color: meta.color,
+      ...style
+    }}>
+      {meta.label}
+    </span>
+  )
+}
+
 export default function Players() {
   const { activeAuction, userRole } = useApp()
   const navigate = useNavigate()
@@ -155,6 +179,7 @@ export default function Players() {
       {showModal && (
         <PlayerFormModal
           auctionId={activeAuction.id}
+          auctionName={activeAuction.name}
           existingCodes={players.map(p => p.code)}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); loadPlayers() }}
@@ -188,8 +213,16 @@ function PlayerCard({ player, roleColors, onClick, onDelete }) {
 
       {/* Info */}
       <div className="player-info">
-        <div className="player-name">{player.name}</div>
-        <div className="player-role" style={{ color: roleColor }}>{player.role}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <div className="player-name" style={{ marginBottom: 0 }}>{player.name}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <div className="player-role" style={{ color: roleColor, marginBottom: 0 }}>{player.role}</div>
+          {player.category && player.category !== 'Gold' && (
+            <CategoryBadge category={player.category} />
+          )}
+          {player.category === 'Gold' && <CategoryBadge category="Gold" />}
+        </div>
         <div className="player-stats">
           {player.age && (
             <div className="player-stat">

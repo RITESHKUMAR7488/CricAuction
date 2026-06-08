@@ -5,6 +5,8 @@ import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
 import { exportAuctionPDF, exportAuctionCSV } from '../lib/exportUtils'
 import { uploadFile } from '../lib/supabase'
+import { CategoryBadge } from './Players'
+import { Shield, User, Zap, RefreshCw, Settings } from 'lucide-react'
 
 export default function Auction() {
   const { activeAuction, leagueName, userRole } = useApp()
@@ -127,7 +129,7 @@ export default function Auction() {
   async function loadData() {
     setLoading(true)
     const [{ data: teamsData }, { data: playersData }, { data: settingsData }] = await Promise.all([
-      supabase.from('teams').select('*, players(id, status, sold_price), owners(name)').eq('auction_id', activeAuction.id).order('created_at'),
+      supabase.from('teams').select('*, players(id, status, sold_price), owners(name), category_config').eq('auction_id', activeAuction.id).order('created_at'),
       supabase.from('players').select('*').eq('auction_id', activeAuction.id).order('code'),
       supabase.from('settings').select('*').single()
     ])
@@ -137,7 +139,7 @@ export default function Auction() {
     setLoading(false)
   }
 
-  const availablePlayers = players.filter(p => p.status === 'available')
+  const availablePlayers = players.filter(p => p.status === 'available' && p.category !== 'Retained')
   const soldPlayers = players.filter(p => p.status === 'sold')
   const unsoldPlayers = players.filter(p => p.status === 'unsold')
   const totalSpent = teams.reduce((s, t) => {
@@ -147,6 +149,37 @@ export default function Auction() {
 
   function getTeamSpent(team) {
     return (team.players || []).filter(p => p.status === 'sold').reduce((s, p) => s + (p.sold_price || 0), 0)
+  }
+
+  // Smart bid cap: purse left minus what must be reserved for remaining required players
+  function getTeamMaxBid(team) {
+    const config = team.category_config || {}
+    const hasConfig = Object.keys(config).length > 0
+    const spent = getTeamSpent(team)
+    const purseLeft = team.total_purse - spent
+
+    if (!hasConfig) return purseLeft // legacy: no config, use full purse
+
+    // Count how many sold players belong to this team by category
+    const soldInTeam = players.filter(p => p.status === 'sold' && p.team_id === team.id)
+    const soldByCategory = {}
+    for (const p of soldInTeam) {
+      const cat = (p.category || 'gold').toLowerCase()
+      soldByCategory[cat] = (soldByCategory[cat] || 0) + 1
+    }
+
+    let reserved = 0
+    for (const cat of ['retained', 'platinum', 'diamond', 'gold']) {
+      const required = parseInt(config[cat]?.count) || 0
+      const alreadyFilled = soldByCategory[cat] || 0
+      const stillNeeded = Math.max(0, required - alreadyFilled)
+      const basePrice = parseFloat(config[cat]?.base_price) || 0
+      reserved += stillNeeded * basePrice
+    }
+
+    // The current player being bid on will fill one slot — subtract its base price from reserved
+    // (it's already reflected in currentBid, so we only guard the REMAINING slots)
+    return Math.max(0, purseLeft - reserved)
   }
 
   function handleSpinResult(playerCode) {
@@ -206,9 +239,25 @@ export default function Auction() {
 
   async function handleSold(playerId, teamId, soldPrice) {
     try {
+      // Fetch the player to get their user_id for notification
+      const { data: playerData } = await supabase.from('players').select('user_id, name').eq('id', playerId).single()
+
       await supabase.from('players').update({
         status: 'sold', team_id: teamId, sold_price: soldPrice
       }).eq('id', playerId)
+
+      // Notify the linked player user
+      if (playerData?.user_id) {
+        const soldTeam = teams.find(t => t.id === teamId)
+        await supabase.from('notifications').insert({
+          user_id: playerData.user_id,
+          auction_id: activeAuction.id,
+          type: 'sold',
+          title: '🔨 You\'ve been sold!',
+          body: `Congratulations! You were sold for ₹${soldPrice}L${soldTeam ? ` to ${soldTeam.name}` : ''} in "${activeAuction.name}".`,
+        })
+      }
+
       showToast('Player sold! 🔨', 'success')
       handleCloseBidding()
       loadData()
@@ -245,7 +294,7 @@ export default function Auction() {
     return (
       <div className="page-content">
         <div className="empty-state">
-          <div className="empty-state-icon" style={{ fontSize: 64 }}>⚡</div>
+          <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><Zap size={64} color="var(--gold)" /></div>
           <div className="empty-state-title" style={{ fontFamily: 'Rajdhani', fontSize: 24 }}>No Auction Active</div>
           <div className="empty-state-desc">
             Create or select an auction from the menu to start bidding
@@ -327,7 +376,9 @@ export default function Auction() {
                       {team.logo_url ? (
                         <img src={team.logo_url} alt={team.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', marginBottom: 8 }} />
                       ) : (
-                        <div style={{ width: 44, height: 44, borderRadius: 8, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 8 }}>🛡️</div>
+                        <div style={{ width: 44, height: 44, borderRadius: 8, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                          <Shield size={22} color={team.color} />
+                        </div>
                       )}
                       <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', fontFamily: 'Rajdhani', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' }}>
                         {team.name.toUpperCase()}
@@ -391,7 +442,7 @@ export default function Auction() {
                   className="btn btn-primary" 
                   style={{ marginTop: 20, padding: '12px 24px', fontSize: 16, fontFamily: 'Rajdhani', fontWeight: 700, letterSpacing: 1 }}
                 >
-                  🔄 RE-HOST {unsoldPlayers.length} UNSOLD PLAYERS
+                  <RefreshCw size={14} style={{ display: 'inline', marginRight: 6 }} /> RE-HOST {unsoldPlayers.length} UNSOLD PLAYERS
                 </button>
               )}
             </div>
@@ -406,7 +457,9 @@ export default function Auction() {
         position: 'relative', flexShrink: 0, marginTop: 'auto'
       }}>
         {userRole === 'host' && (
-          <button onClick={() => setShowFooterModal(true)} style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }} title="Manage Footer Logos">⚙️</button>
+          <button onClick={() => setShowFooterModal(true)} style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Manage Footer Logos">
+            <Settings size={16} />
+          </button>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -447,6 +500,7 @@ export default function Auction() {
         <FooterSettingsModal onClose={() => setShowFooterModal(false)} settings={settings} onSaved={() => { setShowFooterModal(false); loadData(); }} />
       )}
 
+
       {/* Bidding Modal */}
       {showBidding && selectedPlayer && (
         <BiddingModal
@@ -456,6 +510,7 @@ export default function Auction() {
           onUnsold={handleUnsold}
           onClose={handleCloseBidding}
           getTeamSpent={getTeamSpent}
+          getTeamMaxBid={getTeamMaxBid}
           userRole={userRole}
           currentBid={currentBid}
           setCurrentBid={setCurrentBid}
@@ -802,7 +857,7 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
 
 // ===================== BIDDING MODAL =====================
 function BiddingModal({ 
-  player, teams, onSold, onUnsold, onClose, getTeamSpent, userRole,
+  player, teams, onSold, onUnsold, onClose, getTeamSpent, getTeamMaxBid, userRole,
   currentBid, setCurrentBid, selectedTeam, setSelectedTeam, bidHistory, setBidHistory,
   audienceSoldTrigger, onSoldAnimationStart
 }) {
@@ -842,10 +897,18 @@ function BiddingModal({
   function placeBid(team, increment) {
     const currentNumericBid = Number(currentBid) || 0
     const newBid = Math.round((currentNumericBid + increment) * 100) / 100
-    const teamSpent = Math.round(getTeamSpent(team) * 100) / 100
-    const purseLeft = Math.round((team.total_purse - teamSpent) * 100) / 100
-    if (newBid > purseLeft) {
-      showToast(`${team.name} doesn't have enough purse!`, 'error')
+    const maxBid = getTeamMaxBid ? getTeamMaxBid(team) : (team.total_purse - getTeamSpent(team))
+
+    if (newBid > Math.round(maxBid * 100) / 100) {
+      const teamSpent = getTeamSpent(team)
+      const purseLeft = team.total_purse - teamSpent
+      const reserved = purseLeft - maxBid
+      showToast(
+        reserved > 0
+          ? `${team.name} must keep ₹${reserved.toFixed(2)}L reserved for remaining squad slots!`
+          : `${team.name} doesn't have enough purse!`,
+        'error'
+      )
       return
     }
     setCurrentBid(newBid)
@@ -946,15 +1009,19 @@ function BiddingModal({
                   background: 'var(--bg-secondary)', border: `4px solid ${roleColors[player.role] || 'var(--blue)'}55`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: `0 10px 20px ${roleColors[player.role] || 'var(--blue)'}22`
-                }}>👤</div>
+                }}><User size={36} color="var(--text-muted)" /></div>
               )}
               <div style={{ marginTop: 20, textAlign: 'center' }}>
                 <div style={{ fontFamily: 'Rajdhani', fontSize: 24, fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.1, textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
                   {player.name}
                 </div>
-                <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginTop: 6 }}>
-                  {player.role} • Base Price: ₹ {player.base_price} L
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                  <div style={{ color: roleColors[player.role] || 'var(--blue)', fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
+                    {player.role}
+                  </div>
+                  <CategoryBadge category={player.category || 'Gold'} style={{ fontSize: 10 }} />
                 </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Base Price: ₹ {player.base_price} L</div>
               </div>
             </div>
 
@@ -1039,15 +1106,17 @@ function BiddingModal({
                 {teams.map(team => {
                   const spent = getTeamSpent(team)
                   const purseLeft = team.total_purse - spent
+                  const maxBid = getTeamMaxBid ? getTeamMaxBid(team) : purseLeft
+                  const reserved = Math.round((purseLeft - maxBid) * 100) / 100
                   const playerCount = (team.players || []).filter(p => p.status === 'sold').length
                   const isFull = playerCount >= team.max_players
-                  const canBid = !isFull && purseLeft > currentBid
+                  const canBid = !isFull && maxBid >= currentBid
 
                   return (
                     <div key={team.id} style={{
                       background: selectedTeam?.id === team.id ? `${team.color}15` : 'rgba(255,255,255,0.02)',
                       border: selectedTeam?.id === team.id ? `2px solid ${team.color}88` : '1px solid var(--border)',
-                      borderRadius: 12, padding: '10px', display: 'flex', flexDirection: 'column', gap: 8,
+                      borderRadius: 12, padding: '10px', display: 'flex', flexDirection: 'column', gap: 6,
                       transition: 'all 0.2s', marginBottom: 12,
                       cursor: userRole === 'host' && canBid ? 'pointer' : 'default'
                     }} onClick={() => {
@@ -1058,14 +1127,29 @@ function BiddingModal({
                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color }} />
                            <span style={{ fontWeight: 800, fontSize: 13 }}>{team.name}</span>
                          </div>
-                         <div style={{ fontSize: 12, color: purseLeft < 20 ? 'var(--red)' : 'var(--green)', fontWeight: 800 }}>
-                           ₹{purseLeft.toFixed(1)}L
+                         <div style={{ textAlign: 'right' }}>
+                           <div style={{ fontSize: 12, color: maxBid < 1 ? 'var(--red)' : 'var(--green)', fontWeight: 800 }}>
+                             ₹{purseLeft.toFixed(1)}L
+                           </div>
                          </div>
                       </div>
+
+                      {/* Max bid indicator */}
+                      {reserved > 0.01 && (
+                        <div style={{ 
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          fontSize: 10, padding: '4px 8px', borderRadius: 6,
+                          background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.2)'
+                        }}>
+                          <span style={{ color: 'var(--gold)', fontWeight: 700 }}>MAX BID</span>
+                          <span style={{ color: 'var(--gold)', fontWeight: 800 }}>₹{maxBid.toFixed(2)}L</span>
+                        </div>
+                      )}
+
                       {canBid ? (
                         <div style={{ display: 'flex', gap: 4 }}>
                           {BID_INCREMENTS.map(inc => (
-                            (Math.round((Number(currentBid) + inc) * 100) / 100) <= purseLeft && (
+                            (Math.round((Number(currentBid) + inc) * 100) / 100) <= Math.round(maxBid * 100) / 100 && (
                               <button key={inc} onClick={(e) => { e.stopPropagation(); placeBid(team, inc); }} disabled={userRole !== 'host'} style={{
                                 flex: 1, padding: '6px 0', borderRadius: 8, background: userRole === 'host' ? `${team.color}22` : 'transparent',
                                 border: `1px solid ${userRole === 'host' ? `${team.color}44` : 'var(--border)'}`, color: userRole === 'host' ? team.color : 'var(--text-muted)',
@@ -1076,7 +1160,7 @@ function BiddingModal({
                         </div>
                       ) : (
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
-                          {isFull ? 'SQUAD FULL' : 'INSUFFICIENT PURSE'}
+                          {isFull ? 'SQUAD FULL' : maxBid < currentBid && reserved > 0.01 ? 'PURSE LOCKED 🔒' : 'INSUFFICIENT PURSE'}
                         </div>
                       )}
                     </div>

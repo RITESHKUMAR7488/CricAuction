@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-// SVG icons matching the reference app design
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
 const GavelIcon = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <path d="M9 3L5 7l10 10 4-4L9 3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -46,19 +47,40 @@ const StarIcon = ({ size = 20 }) => (
   </svg>
 )
 
+// Wrench/tools icon for Host Tools
+const ToolsIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+  </svg>
+)
+
 const navItems = [
-  { to: '/auction',  label: 'AUCTION',   Icon: GavelIcon,  exact: true },
-  { to: '/teams',    label: 'TEAMS',     Icon: UsersIcon },
-  { to: '/rankings', label: 'RANKINGS',  Icon: TrophyIcon },
-  { to: '/players',  label: 'PLAYERS',   Icon: PersonIcon },
-  { to: '/sponsors', label: 'SPONSORS',  Icon: StarIcon },
+  { to: '/auction',  label: 'AUCTION',  Icon: GavelIcon,  exact: true },
+  { to: '/teams',    label: 'TEAMS',    Icon: UsersIcon },
+  { to: '/rankings', label: 'RANKINGS', Icon: TrophyIcon },
+  { to: '/players',  label: 'PLAYERS',  Icon: PersonIcon },
+  { to: '/sponsors', label: 'SPONSORS', Icon: StarIcon },
 ]
 
 export default function Navbar() {
-  const { leagueName, leagueLogo, activeAuction, isSidebarMinimized, setIsSidebarMinimized } = useApp()
+  const { leagueName, leagueLogo, activeAuction, isSidebarMinimized, setIsSidebarMinimized, user, userRole } = useApp()
+  const navigate = useNavigate()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  // Load unread notification count for the bell badge on Host Tools
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+      .then(({ count }) => setUnreadCount(count || 0))
+  }, [user])
 
   const currentLogo = activeAuction?.logo_url || leagueLogo
   const currentName = activeAuction?.name || leagueName
+  const isHostOrCoHost = userRole === 'host'
 
   return (
     <>
@@ -77,16 +99,17 @@ export default function Navbar() {
               <img src={currentLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
-          
-          <button 
+
+          <button
             className="sidebar-toggle-btn"
             onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
-            title={isSidebarMinimized ? "Expand" : "Minimize"}
+            title={isSidebarMinimized ? 'Expand' : 'Minimize'}
           >
-            {isSidebarMinimized ? '▶' : '◀'}
+            {isSidebarMinimized ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
         </div>
 
+        {/* Regular nav items */}
         {navItems.map(({ to, label, Icon, exact }) => (
           <NavLink
             key={to}
@@ -109,6 +132,37 @@ export default function Navbar() {
             )}
           </NavLink>
         ))}
+
+        {/* ── HOST TOOLS — only visible to host / co-host ── */}
+        {isHostOrCoHost && (
+          <NavLink
+            to="/host-tools"
+            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            style={({ isActive }) => ({ color: isActive ? 'var(--gold)' : '#ffffff', position: 'relative' })}
+            id="nav-host-tools"
+            title={isSidebarMinimized ? 'Host Tools' : ''}
+          >
+            {({ isActive }) => (
+              <>
+                <div className={isActive ? 'nav-icon-wrap' : ''} style={{ position: 'relative' }}>
+                  <span className="nav-icon">
+                    <ToolsIcon size={20} />
+                  </span>
+                  {/* Orange dot indicator to make it stand out */}
+                  <span style={{
+                    position: 'absolute', top: -2, right: -2,
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: isActive ? 'transparent' : 'var(--gold)',
+                    border: '1.5px solid var(--bg-elevated)',
+                  }} />
+                </div>
+                <span style={{ color: isActive ? 'var(--gold)' : '#ffffff' }}>
+                  {isSidebarMinimized ? '' : 'TOOLS'}
+                </span>
+              </>
+            )}
+          </NavLink>
+        )}
       </nav>
     </>
   )

@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
 import { roleColors } from '../constants'
 import PlayerFormModal from '../components/PlayerFormModal'
+import { User, Shield } from 'lucide-react'
 
 export default function PlayerDetail() {
   const { id } = useParams()
@@ -106,9 +107,9 @@ export default function PlayerDetail() {
               <div style={{
                 width: 100, height: 100, borderRadius: 16,
                 background: 'var(--bg-secondary)', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', fontSize: 48,
+                alignItems: 'center', justifyContent: 'center',
                 border: `2px solid ${roleColor}44`
-              }}>👤</div>
+              }}><User size={48} color="var(--text-muted)" /></div>
             )}
             <div style={{
               position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
@@ -191,7 +192,9 @@ export default function PlayerDetail() {
             {team.logo_url ? (
               <img src={team.logo_url} alt={team.name} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
             ) : (
-              <div style={{ width: 40, height: 40, borderRadius: 8, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🛡️</div>
+              <div style={{ width: 40, height: 40, borderRadius: 8, background: team.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Shield size={20} color={team.color} />
+              </div>
             )}
             <div>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{team.name}</div>

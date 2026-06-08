@@ -280,6 +280,16 @@ $body$;
 alter table players replica identity full;
 alter table teams replica identity full;
 
+-- ── Player Categories & Team Category Config ──────────────────────────────────
+-- Run these in the Supabase SQL editor to enable the new features.
+
+-- Add category to players (Retained | Platinum | Diamond | Gold)
+alter table players add column if not exists category text default 'Gold';
+
+-- Add category_config to teams (stores count + base_price per category)
+-- Shape: { "retained": {"count":1,"base_price":0}, "platinum": {"count":2,"base_price":5}, ... }
+alter table teams add column if not exists category_config jsonb default '{}'::jsonb;
+
 -- Add the tables to the supabase_realtime publication so clients receive events
 -- (Commented out to avoid "already member" error if run multiple times)
 -- alter publication supabase_realtime add table players;

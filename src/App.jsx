@@ -12,10 +12,12 @@ import Rankings from './pages/Rankings'
 import Players from './pages/Players'
 import PlayerDetail from './pages/PlayerDetail'
 import Sponsors from './pages/Sponsors'
+import HostTools from './pages/HostTools'
 import Landing from './pages/Landing'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Profile from './pages/Profile'
 import { Navigate } from 'react-router-dom'
 
 function AuthGuard({ children }) {
@@ -102,6 +104,13 @@ function AppInner() {
           </AuthGuard>
         } />
 
+        {/* Protected Profile (standalone — no Navbar/Header) */}
+        <Route path="/profile" element={
+          <AuthGuard>
+            <Profile />
+          </AuthGuard>
+        } />
+
         {/* Protected Main App Layout */}
         <Route path="/*" element={
           <AuthGuard>
@@ -114,6 +123,7 @@ function AppInner() {
                 <Route path="/players" element={<Players />} />
                 <Route path="/players/:id" element={<PlayerDetail />} />
                 <Route path="/sponsors" element={<Sponsors />} />
+                <Route path="/host-tools" element={<HostTools />} />
               </Routes>
             </AppLayout>
           </AuthGuard>

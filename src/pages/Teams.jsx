@@ -441,19 +441,48 @@ function TeamListItem({ team, rank, getSpent, onClick, onEdit, onDelete, owners 
   )
 }
 
+const CATEGORY_DEFS = [
+  { key: 'retained', label: '🔒 Retained', color: '#9b59b6', defaultPrice: 0 },
+  { key: 'platinum', label: '💎 Platinum',  color: '#4a9eff', defaultPrice: 5 },
+  { key: 'diamond',  label: '💠 Diamond',   color: '#00d4aa', defaultPrice: 3 },
+  { key: 'gold',     label: '🥇 Gold',      color: '#f5a623', defaultPrice: 1 },
+]
+
 function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
+  const defaultCatConfig = () => {
+    if (editTeam?.category_config && Object.keys(editTeam.category_config).length > 0) {
+      return editTeam.category_config
+    }
+    // Legacy team: derive from max_players as all Gold
+    return {
+      retained: { count: 0, base_price: 0 },
+      platinum: { count: 0, base_price: 5 },
+      diamond:  { count: 0, base_price: 3 },
+      gold:     { count: editTeam?.max_players || 10, base_price: 1 },
+    }
+  }
+
   const [form, setForm] = useState({
     name: editTeam?.name || '', 
     owner_id: editTeam?.owner_id || '',
     owner_ids: editTeam?.owner_ids || [], 
     total_purse: editTeam?.total_purse?.toString() || '100', 
-    max_players: editTeam?.max_players?.toString() || '10', 
     color: editTeam?.color || '#4a9eff'
   })
+  const [catConfig, setCatConfig] = useState(defaultCatConfig)
   const [logo, setLogo] = useState(null)
   const [logoPreview, setLogoPreview] = useState(editTeam?.logo_url || null)
   const [loading, setLoading] = useState(false)
   const fileRef = React.useRef()
+
+  const maxPlayers = CATEGORY_DEFS.reduce((s, c) => s + (parseInt(catConfig[c.key]?.count) || 0), 0)
+
+  // Calculate minimum purse needed based on category config
+  const minPurseNeeded = CATEGORY_DEFS.reduce((s, c) => {
+    const count = parseInt(catConfig[c.key]?.count) || 0
+    const price = parseFloat(catConfig[c.key]?.base_price) || 0
+    return s + count * price
+  }, 0)
 
   useEffect(() => {
     return () => { if (logoPreview && !logoPreview.startsWith('http')) URL.revokeObjectURL(logoPreview) }
@@ -466,23 +495,46 @@ function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
     setLogoPreview(URL.createObjectURL(file))
   }
 
+  function updateCat(key, field, value) {
+    setCatConfig(prev => ({
+      ...prev,
+      [key]: { ...prev[key], [field]: value }
+    }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name.trim()) return showToast('Team name is required', 'error')
+    if (maxPlayers === 0) return showToast('At least one player slot is required', 'error')
+    const totalPurse = parseFloat(form.total_purse) || 100
+    if (totalPurse < minPurseNeeded) {
+      return showToast(`Purse (₹${totalPurse}L) is less than minimum needed (₹${minPurseNeeded}L) to fill the squad at base prices!`, 'error')
+    }
+
     setLoading(true)
     try {
       let logo_url = editTeam?.logo_url || null
       if (logo) logo_url = await uploadFile(logo, 'teams')
+
+      // Build clean category_config
+      const category_config = {}
+      for (const c of CATEGORY_DEFS) {
+        category_config[c.key] = {
+          count: parseInt(catConfig[c.key]?.count) || 0,
+          base_price: parseFloat(catConfig[c.key]?.base_price) || 0,
+        }
+      }
       
       const payload = {
         auction_id: auctionId,
         name: form.name.trim(),
         owner_id: form.owner_ids.length > 0 ? form.owner_ids[0] : (form.owner_id || null),
         owner_ids: form.owner_ids,
-        total_purse: parseFloat(form.total_purse) || 100,
-        max_players: parseInt(form.max_players) || 10,
+        total_purse: totalPurse,
+        max_players: maxPlayers,
         color: form.color,
-        logo_url
+        logo_url,
+        category_config,
       }
 
       let error;
@@ -515,7 +567,7 @@ function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
           <div className="form-group">
             <label className="form-label">Team Logo</label>
             <div className="photo-upload" onClick={() => fileRef.current.click()}>
-              <input ref={fileRef} type="file" accept="image/*" onChange={handleLogoChange} />
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleLogoChange} style={{ display: 'none' }} />
               {logoPreview ? (
                 <img src={logoPreview} alt="logo" style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', margin: '0 auto 8px', display: 'block' }} />
               ) : (
@@ -557,15 +609,105 @@ function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
             )}
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Total Purse (Lakhs)</label>
-              <input className="form-input" type="number" value={form.total_purse} onChange={e => setForm(f => ({ ...f, total_purse: e.target.value }))} placeholder="100" id="team-purse-input" />
+          <div className="form-group">
+            <label className="form-label">Total Purse (Lakhs)</label>
+            <input className="form-input" type="number" value={form.total_purse} onChange={e => setForm(f => ({ ...f, total_purse: e.target.value }))} placeholder="100" id="team-purse-input" />
+            {minPurseNeeded > 0 && (
+              <div style={{ fontSize: 11, marginTop: 4, color: parseFloat(form.total_purse) < minPurseNeeded ? 'var(--red)' : 'var(--text-muted)' }}>
+                Minimum needed at base prices: <strong>₹{minPurseNeeded.toFixed(1)}L</strong>
+              </div>
+            )}
+          </div>
+
+          {/* Category Configuration */}
+          <div className="form-group">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>Squad Composition</label>
+              <div style={{ 
+                fontSize: 12, fontWeight: 700, 
+                color: maxPlayers > 0 ? 'var(--green)' : 'var(--text-muted)',
+                background: maxPlayers > 0 ? 'rgba(46,204,113,0.1)' : 'transparent',
+                padding: '3px 10px', borderRadius: 20,
+                border: `1px solid ${maxPlayers > 0 ? 'rgba(46,204,113,0.3)' : 'var(--border)'}`
+              }}>
+                {maxPlayers} Players Total
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Max Players</label>
-              <input className="form-input" type="number" value={form.max_players} onChange={e => setForm(f => ({ ...f, max_players: e.target.value }))} placeholder="10" id="team-max-players-input" />
+
+            <div style={{ 
+              border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden',
+            }}>
+              {/* Header row */}
+              <div style={{ 
+                display: 'grid', gridTemplateColumns: '1fr 100px 100px', 
+                padding: '8px 14px', background: 'var(--bg-secondary)',
+                fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8,
+                borderBottom: '1px solid var(--border)'
+              }}>
+                <div>Category</div>
+                <div style={{ textAlign: 'center' }}>Required</div>
+                <div style={{ textAlign: 'center' }}>Base Price (L)</div>
+              </div>
+
+              {CATEGORY_DEFS.map((cat, idx) => (
+                <div key={cat.key} style={{
+                  display: 'grid', gridTemplateColumns: '1fr 100px 100px',
+                  padding: '10px 14px', alignItems: 'center',
+                  borderBottom: idx < CATEGORY_DEFS.length - 1 ? '1px solid var(--border)' : 'none',
+                  background: (catConfig[cat.key]?.count > 0) ? `${cat.color}08` : 'transparent',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: catConfig[cat.key]?.count > 0 ? cat.color : 'var(--border)',
+                    }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: catConfig[cat.key]?.count > 0 ? cat.color : 'var(--text-secondary)' }}>
+                      {cat.label}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      value={catConfig[cat.key]?.count ?? 0}
+                      onChange={e => updateCat(cat.key, 'count', e.target.value)}
+                      style={{
+                        width: 60, textAlign: 'center', padding: '5px 4px',
+                        background: 'var(--bg-elevated)', border: `1px solid ${catConfig[cat.key]?.count > 0 ? cat.color + '66' : 'var(--border)'}`,
+                        borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, fontWeight: 700,
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      value={catConfig[cat.key]?.base_price ?? cat.defaultPrice}
+                      onChange={e => updateCat(cat.key, 'base_price', e.target.value)}
+                      style={{
+                        width: 70, textAlign: 'center', padding: '5px 4px',
+                        background: 'var(--bg-elevated)', border: `1px solid ${catConfig[cat.key]?.count > 0 ? cat.color + '66' : 'var(--border)'}`,
+                        borderRadius: 8, color: 'var(--text-primary)', fontSize: 13, fontWeight: 700,
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
+
+            {maxPlayers > 0 && (
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                {CATEGORY_DEFS.filter(c => catConfig[c.key]?.count > 0).map(c => (
+                  <span key={c.key} style={{ marginRight: 10, color: c.color }}>
+                    {catConfig[c.key].count}× {c.label.split(' ')[1]} @₹{catConfig[c.key].base_price}L
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -595,6 +737,7 @@ function AddTeamModal({ auctionId, owners, editTeam, onClose, onSaved }) {
 }
 
 function ManageOwnersModal({ auctionId, owners, onClose, onSaved }) {
+
   const [name, setName] = useState('')
   const [photo, setPhoto] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)

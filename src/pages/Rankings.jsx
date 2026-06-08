@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
+import { Medal, Crown, User, Trophy } from 'lucide-react'
 
 export default function Rankings() {
   const { activeAuction } = useApp()
@@ -116,7 +117,7 @@ export default function Rankings() {
 
                 {/* ── RANK 1 (center column, tallest) ── */}
                 <div className="rk-podium-col rk-col-1">
-                  <div className="rk-crown">👑</div>
+                  <div className="rk-crown"><Crown size={22} color="var(--gold)" /></div>
                   <div className="rk-podium-players">
                     {rank1Players.map(p => (
                       <PodiumPlayerCard key={p.id} player={p} rank={1} onClick={() => navigate(`/players/${p.id}`)} />
@@ -170,7 +171,7 @@ export default function Rankings() {
                     <div className="rk-row-photo">
                       {player.photo_url
                         ? <img src={player.photo_url} alt={player.name} />
-                        : <div className="rk-row-photo-placeholder">👤</div>
+                        : <div className="rk-row-photo-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={20} color="var(--text-muted)" /></div>
                       }
                     </div>
 
@@ -250,7 +251,7 @@ function PodiumPlayerCard({ player, rank, onClick }) {
       <div className="rk-card-photo-wrap" style={{ borderColor: c.border }}>
         {player.photo_url
           ? <img src={player.photo_url} alt={player.name} className="rk-card-photo" />
-          : <div className="rk-card-photo-placeholder">👤</div>
+          : <div className="rk-card-photo-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={28} color="var(--text-muted)" /></div>
         }
       </div>
 
@@ -259,8 +260,9 @@ function PodiumPlayerCard({ player, rank, onClick }) {
 
       {/* Team */}
       {player.teams && (
-        <div className="rk-card-team" style={{ color: player.teams.color || 'var(--text-muted)' }}>
-          🏆 {player.teams.name}
+        <div className="rk-card-team" style={{ color: player.teams.color || 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Trophy size={11} />
+          {player.teams.name}
         </div>
       )}
 
