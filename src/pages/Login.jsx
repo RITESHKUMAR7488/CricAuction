@@ -18,7 +18,7 @@ export default function Login() {
   const [gender, setGender] = useState('Male')
   const [picture, setPicture] = useState(null)
   const [picturePreview, setPicturePreview] = useState(null)
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(() => window.location.search.includes('signup=true'))
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef(null)
 

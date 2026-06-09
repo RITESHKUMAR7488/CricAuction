@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
+import ProfileMenu from './ProfileMenu'
 
 export default function Header({ onMenuToggle }) {
   const { leagueName, leagueLogo, activeAuction } = useApp()
@@ -47,7 +48,8 @@ export default function Header({ onMenuToggle }) {
         </div>
       )}
 
-      <div className="header-actions">
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <ProfileMenu buttonStyle={{ marginRight: 8 }} />
         <button className="header-icon-btn" onClick={toggleFullScreen} title="Toggle Fullscreen" style={{ fontSize: 16, color: '#fff' }}>
           {isFullscreen ? '↙️' : '↗️'}
         </button>

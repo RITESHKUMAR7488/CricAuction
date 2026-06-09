@@ -94,18 +94,32 @@ export default function Landing() {
             Bid. Build. Dominate. CricAuction brings your fantasy league to life with real-time bidding, automated purse tracking, and professional-grade team management.
           </p>
 
-          <div className="lp-cta-row">
-            <button
-              className="lp-btn-primary"
-              onClick={() => navigate(user ? '/auction' : '/login')}
-            >
-              {user ? 'Open Arena' : 'Start for Free'}
-              <span className="lp-btn-arrow">→</span>
-            </button>
-            {!user && (
-              <button className="lp-btn-ghost" onClick={() => navigate('/login')}>
-                Sign In
+          <div className="lp-cta-row" style={!user ? { flexDirection: 'column', gap: 16, alignItems: 'flex-start' } : {}}>
+            {user ? (
+              <button
+                className="lp-btn-primary"
+                onClick={() => navigate('/auction')}
+              >
+                Open Arena
+                <span className="lp-btn-arrow">→</span>
               </button>
+            ) : (
+              <>
+                <button
+                  className="lp-btn-primary"
+                  onClick={() => navigate('/login')}
+                  style={{ width: '100%', maxWidth: 280, justifyContent: 'center' }}
+                >
+                  Log In
+                </button>
+                <button
+                  className="lp-btn-ghost"
+                  onClick={() => navigate('/login?signup=true')}
+                  style={{ width: '100%', maxWidth: 280, justifyContent: 'center' }}
+                >
+                  Sign Up
+                </button>
+              </>
             )}
           </div>
 
@@ -206,6 +220,21 @@ export default function Landing() {
         <span className="lp-footer-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           © {new Date().getFullYear()} CricAuction · Powered by <img src="/bricx-logo.png" alt="BricX" style={{ height: 40, width: 'auto' }} />
         </span>
+        <button
+          onClick={() => navigate('/about-founder')}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-secondary)',
+            fontSize: 13,
+            cursor: 'pointer',
+            marginTop: 8,
+            textDecoration: 'underline',
+            textUnderlineOffset: 3,
+          }}
+        >
+          About the Founder
+        </button>
       </footer>
     </div>
   )

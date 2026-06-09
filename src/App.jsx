@@ -13,6 +13,7 @@ import Players from './pages/Players'
 import PlayerDetail from './pages/PlayerDetail'
 import Sponsors from './pages/Sponsors'
 import HostTools from './pages/HostTools'
+import AboutFounder from './pages/AboutFounder'
 import Landing from './pages/Landing'
 
 import Login from './pages/Login'
@@ -125,6 +126,7 @@ function AppInner() {
                 <Route path="/players/:id" element={<PlayerDetail />} />
                 <Route path="/sponsors" element={<Sponsors />} />
                 <Route path="/host-tools" element={<HostTools />} />
+                <Route path="/about-founder" element={<AboutFounder />} />
               </Routes>
             </AppLayout>
           </AuthGuard>

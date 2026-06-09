@@ -8,7 +8,7 @@ import { showToast } from './Toast'
 import {
   Plus, RefreshCw, Pencil, Image, ImagePlay, Crown,
   FileText, BarChart2, RotateCcw, Trash2, LogOut,
-  Camera, Check, Circle, LayoutDashboard
+  Camera, Check, Circle, LayoutDashboard, User
 } from 'lucide-react'
 
 export default function SideMenu({ onClose }) {
@@ -186,6 +186,9 @@ export default function SideMenu({ onClose }) {
           <div className="menu-divider" />
           <div className="menu-item" onClick={() => { onClose(); navigate('/dashboard') }} id="menu-go-dashboard">
             <LayoutDashboard size={16} /> Go to Dashboard
+          </div>
+          <div className="menu-item" onClick={() => { onClose(); navigate('/about-founder') }} id="menu-about-founder">
+            <User size={16} /> About Founder
           </div>
           <div className="menu-item" onClick={async () => {
             await supabase.auth.signOut()
