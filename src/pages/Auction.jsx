@@ -34,7 +34,7 @@ export default function Auction() {
       if (!sessionStorage.getItem(splashKey)) {
         setShowBannerSplash(true)
         sessionStorage.setItem(splashKey, 'true')
-        const timer = setTimeout(() => setShowBannerSplash(false), 2000)
+        const timer = setTimeout(() => setShowBannerSplash(false), 5000)
         return () => clearTimeout(timer)
       } else {
         setShowBannerSplash(false)
@@ -309,16 +309,9 @@ export default function Auction() {
     return (
       <div style={{
         position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        animation: 'fadeOut 0.5s ease-out 1.5s forwards'
+        display: 'flex', alignItems: 'center', justifyContent: 'center'
       }}>
-        <img src={activeAuction.banner_url} alt="Tournament Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <style>{`
-          @keyframes fadeOut {
-            0% { opacity: 1; }
-            100% { opacity: 0; visibility: hidden; }
-          }
-        `}</style>
+        <img src={activeAuction.banner_url} alt="Tournament Banner" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
       </div>
     )
   }
@@ -462,6 +455,7 @@ export default function Auction() {
           </button>
         )}
 
+        {/* Title Sponsor */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Title Sponsor</div>
           {settings?.title_logo ? (
@@ -475,6 +469,7 @@ export default function Auction() {
 
         <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
 
+        {/* Co-Title Sponsor */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Co-Title Sponsor</div>
           {settings?.co_title_logo ? (
@@ -488,12 +483,32 @@ export default function Auction() {
 
         <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
 
+        {/* Digital Sponsor */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Digital Sponsor</div>
           {settings?.bricx_logo ? (
             <img src={settings.bricx_logo} alt="BricX" style={{ height: 60, objectFit: 'contain' }} />
           ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 60, objectFit: 'contain' }} />}
         </div>
+
+        {/* Custom Sponsors */}
+        {settings?.custom_sponsors && (() => {
+          let customs = []
+          try { customs = JSON.parse(settings.custom_sponsors) } catch {}
+          return customs.map((sp, i) => (
+            <React.Fragment key={i}>
+              <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{sp.label}</div>
+                {sp.logo_url ? (
+                  <img src={sp.logo_url} alt={sp.label} style={{ height: 40, objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1 }}>[{sp.label.toUpperCase()}]</div>
+                )}
+              </div>
+            </React.Fragment>
+          ))
+        })()}
       </div>
 
       {showFooterModal && (
@@ -1243,6 +1258,13 @@ function Firecrackers() {
 function FooterSettingsModal({ onClose, settings, onSaved }) {
   const [loading, setLoading] = useState(false)
   const [files, setFiles] = useState({ title_logo: null, co_title_logo: null, bricx_logo: null })
+  // Custom sponsor state
+  const [customLabel, setCustomLabel] = useState('')
+  const [customFile, setCustomFile] = useState(null)
+
+  // Parse existing custom sponsors
+  let customSponsors = []
+  try { customSponsors = settings?.custom_sponsors ? JSON.parse(settings.custom_sponsors) : [] } catch {}
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -1293,21 +1315,58 @@ function FooterSettingsModal({ onClose, settings, onSaved }) {
     }
   }
 
+  async function handleAddCustomSponsor() {
+    if (!customLabel.trim()) return showToast('Please enter a sponsor label', 'error')
+    setLoading(true)
+    try {
+      let logo_url = null
+      if (customFile) {
+        logo_url = await uploadFile(customFile, 'sponsors')
+      }
+      const updated = [...customSponsors, { label: customLabel.trim(), logo_url }]
+      const { error } = await supabase.from('settings').update({ custom_sponsors: JSON.stringify(updated) }).eq('id', 1)
+      if (error) throw error
+      showToast('Sponsor added!', 'success')
+      setCustomLabel('')
+      setCustomFile(null)
+      onSaved()
+    } catch(err) {
+      showToast('Error: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRemoveCustomSponsor(idx) {
+    setLoading(true)
+    try {
+      const updated = customSponsors.filter((_, i) => i !== idx)
+      const { error } = await supabase.from('settings').update({ custom_sponsors: JSON.stringify(updated) }).eq('id', 1)
+      if (error) throw error
+      onSaved()
+    } catch(err) {
+      showToast('Error: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="modal-overlay">
-      <div className="modal">
+      <div className="modal" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
         <div className="modal-header">
-          <div className="modal-title">Footer Logos</div>
+          <div className="modal-title">Footer Sponsors</div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {['title_logo', 'co_title_logo', 'bricx_logo'].map(key => {
             const isMultiple = key !== 'bricx_logo';
             const currentUrls = settings?.[key] ? (isMultiple ? settings[key].split(',') : [settings[key]]) : [];
+            const label = key === 'title_logo' ? 'Title Sponsor' : key === 'co_title_logo' ? 'Co-Title Sponsor' : 'Digital Sponsor'
             
             return (
               <div key={key} className="form-group">
-                <label className="form-label">{key.replace('_', ' ').toUpperCase()} {isMultiple ? '(Add multiple)' : ''}</label>
+                <label className="form-label">{label} {isMultiple ? '(Can add multiple)' : ''}</label>
                 <input type="file" accept="image/*" onChange={e => setFiles(f => ({ ...f, [key]: e.target.files[0] }))} className="form-input" style={{ padding: 8 }} />
                 
                 {currentUrls.length > 0 && (
@@ -1328,6 +1387,56 @@ function FooterSettingsModal({ onClose, settings, onSaved }) {
             <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving...' : 'Upload & Save'}</button>
           </div>
         </form>
+
+        {/* Custom Sponsors Section */}
+        <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>➕ Add Custom Sponsor Type</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Sponsor label (e.g. Turf Sponsor, Kit Sponsor)"
+              value={customLabel}
+              onChange={e => setCustomLabel(e.target.value)}
+            />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={e => setCustomFile(e.target.files[0])}
+              className="form-input"
+              style={{ padding: 8 }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={loading || !customLabel.trim()}
+              onClick={handleAddCustomSponsor}
+            >
+              {loading ? 'Adding...' : 'Add Sponsor'}
+            </button>
+          </div>
+
+          {/* Existing custom sponsors */}
+          {customSponsors.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Current Custom Sponsors</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {customSponsors.map((sp, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid var(--border)' }}>
+                    {sp.logo_url && <img src={sp.logo_url} alt={sp.label} style={{ height: 32, objectFit: 'contain' }} />}
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{sp.label}</span>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleRemoveCustomSponsor(i)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                    >Remove</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

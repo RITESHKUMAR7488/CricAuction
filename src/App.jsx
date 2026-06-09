@@ -18,11 +18,12 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 
 function AuthGuard({ children }) {
   const { user } = useApp()
-  if (!user) return <Navigate to="/login" replace />
+  const location = useLocation()
+  if (!user) return <Navigate to={`/login${location.search}`} replace />
   return children
 }
 

@@ -66,7 +66,10 @@ export default function Landing() {
 
       {/* Top nav */}
       <nav className="lp-nav">
-        <img src="/cricauction-logo.jpeg" alt="CricAuction" className="lp-nav-logo" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/cricauction-logo.jpeg" alt="CricAuction" className="lp-nav-logo" />
+          <span style={{ fontFamily: 'Rajdhani, sans-serif', fontWeight: 800, fontSize: 20, color: '#ffffff', letterSpacing: 1.5 }}>CricAuction</span>
+        </div>
         {!user && (
           <button className="lp-nav-signin" onClick={() => navigate('/login')}>
             Sign In

@@ -8,6 +8,7 @@ create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   phone text,
+  gender text default 'Male',
   avatar_url text,
   created_at timestamptz default now()
 );
@@ -19,11 +20,12 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, phone, avatar_url)
+  insert into public.profiles (id, full_name, phone, gender, avatar_url)
   values (
     new.id,
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'phone',
+    coalesce(new.raw_user_meta_data->>'gender', 'Male'),
     new.raw_user_meta_data->>'avatar_url'
   );
   return new;
@@ -47,6 +49,7 @@ create table if not exists settings (
   co_title_logo_mobile text,
   bricx_logo text,
   bricx_logo_mobile text,
+  custom_sponsors text, -- JSON array: [{label, logo_url}]
   constraint single_row check (id = 1)
 );
 insert into settings (id, league_name) values (1, 'ELITE LEAGUE') on conflict (id) do nothing;

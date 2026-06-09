@@ -33,6 +33,17 @@ export default function Dashboard() {
     if (user) loadProfile()
   }, [user])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const joinParam = params.get('join')
+    if (joinParam) {
+      setJoinCode(joinParam.toUpperCase())
+      setShowJoin(true)
+      // Clean up the URL so it doesn't stay there if they refresh
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
   async function loadProfile() {
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (data) {
@@ -95,7 +106,7 @@ export default function Dashboard() {
   const avatarUrl = photoPreview || profile?.avatar_url
 
   return (
-    <div className="dashboard-page" style={{ position: 'relative', overflow: 'hidden' }}>
+    <div className="dashboard-page" style={{ position: 'relative', overflow: 'hidden', background: 'var(--blue)15' }}>
 
       {/* ── Profile Drawer Overlay ── */}
       {profileOpen && (
@@ -230,8 +241,9 @@ export default function Dashboard() {
       {/* ── Top bar ── */}
       <div className="dashboard-topbar">
         <div className="dashboard-brand">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <img src="/cricauction-logo.jpeg" alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }} />
+            <span style={{ fontFamily: 'Rajdhani, sans-serif', fontWeight: 800, fontSize: 20, color: '#ffffff', letterSpacing: 1.5 }}>CricAuction</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -271,7 +283,7 @@ export default function Dashboard() {
         {/* Action cards */}
         <div className="dashboard-action-grid">
           {/* Create */}
-          <div className="dashboard-card">
+          <div className="dashboard-card" style={{ background: 'var(--blue)15', borderColor: 'var(--blue)33' }}>
             <div style={{ width: 48, height: 48, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, background: 'rgba(74,158,255,0.1)', border: '1px solid rgba(74,158,255,0.2)' }}>
               <Activity size={24} color="var(--blue)" />
             </div>
@@ -295,7 +307,7 @@ export default function Dashboard() {
           </div>
 
           {/* Join */}
-          <div className="dashboard-card">
+          <div className="dashboard-card" style={{ background: 'var(--blue)15', borderColor: 'var(--blue)33' }}>
             <div style={{ width: 48, height: 48, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, background: 'rgba(46,204,113,0.1)', border: '1px solid rgba(46,204,113,0.2)' }}>
               <Ticket size={24} color="var(--green)" />
             </div>
@@ -329,7 +341,7 @@ export default function Dashboard() {
               </div>
             ) : (
               hostedAuctions.map(a => (
-                <div key={a.id} className="dashboard-auction-item">
+                <div key={a.id} className="dashboard-auction-item" style={{ background: 'var(--blue)15', borderColor: 'var(--blue)33' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(74,158,255,0.15)', border: '1px solid rgba(74,158,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Activity size={20} color="var(--blue)" />
@@ -362,7 +374,7 @@ export default function Dashboard() {
               </div>
             ) : (
               joinedAuctions.map(a => (
-                <div key={a.id} className="dashboard-auction-item">
+                <div key={a.id} className="dashboard-auction-item" style={{ background: 'var(--blue)15', borderColor: 'var(--blue)33' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(46,204,113,0.12)', border: '1px solid rgba(46,204,113,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Ticket size={20} color="var(--green)" />
@@ -383,6 +395,7 @@ export default function Dashboard() {
 
         {/* Footer */}
         <div style={{ textAlign: 'center', padding: '16px 0 32px', opacity: 0.9 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8, fontWeight: 600 }}>Powered by</div>
           <img src="/bricx-logo.png" alt="Powered by BricX" style={{ width: 160, height: 'auto', marginBottom: 8 }} />
         </div>
       </div>

@@ -31,6 +31,13 @@ export function AppProvider({ children }) {
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
 
   useEffect(() => {
+    // Prevent accidental sharing of auth tokens if user copies URL after email verification
+    if (window.location.hash.includes('access_token=')) {
+      setTimeout(() => {
+        window.history.replaceState(null, '', window.location.pathname)
+      }, 500)
+    }
+
     // Subscribe to ongoing auth changes (login / logout events)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)

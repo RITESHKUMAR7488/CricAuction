@@ -2,36 +2,42 @@ import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { showToast } from '../components/Toast'
-import Cropper from 'react-easy-crop'
-import getCroppedImg from '../lib/cropImage'
+
+// Helper: convert phone number to a deterministic email for Supabase auth
+function phoneToEmail(phone) {
+  // Strip non-digits
+  const digits = phone.replace(/\D/g, '')
+  return `${digits}@cricauction.app`
+}
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [mobile, setMobile] = useState('')
+  const [gender, setGender] = useState('Male')
   const [picture, setPicture] = useState(null)
+  const [picturePreview, setPicturePreview] = useState(null)
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
-  
-  // Cropping states
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
-  const [imageSrc, setImageSrc] = useState(null)
-  const [showCropModal, setShowCropModal] = useState(false)
-  const [croppedPreviewUrl, setCroppedPreviewUrl] = useState(null)
   const fileInputRef = useRef(null)
 
   const navigate = useNavigate()
 
   async function handleAuth(e) {
     e.preventDefault()
-    if (!email.trim() || !password.trim()) {
-      return showToast('Please enter both email and password', 'error')
-    }
-    if (isSignUp && (!name.trim() || !mobile.trim() || !picture)) {
-      return showToast('Please enter all mandatory fields (Name, Mobile, and Profile Picture)', 'error')
+
+    if (isSignUp) {
+      if (!name.trim() || !mobile.trim() || !password.trim()) {
+        return showToast('Please fill in all required fields', 'error')
+      }
+      if (password.length < 6) {
+        return showToast('Password must be at least 6 characters', 'error')
+      }
+    } else {
+      if (!phone.trim() || !password.trim()) {
+        return showToast('Please enter your phone number and password', 'error')
+      }
     }
 
     setLoading(true)
@@ -55,13 +61,16 @@ export default function Login() {
           avatar_url = publicUrl
         }
 
+        const signupEmail = phoneToEmail(mobile)
+
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: signupEmail,
           password,
           options: {
             data: {
               full_name: name,
               phone: mobile,
+              gender,
               avatar_url: avatar_url
             }
           }
@@ -72,13 +81,15 @@ export default function Login() {
           setIsSignUp(false)
         } else {
           showToast('Account created successfully!', 'success')
-          navigate('/dashboard')
+          navigate('/dashboard' + window.location.search)
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        // Sign in with phone → convert to email
+        const signinEmail = phoneToEmail(phone)
+        const { error } = await supabase.auth.signInWithPassword({ email: signinEmail, password })
         if (error) throw error
         showToast('Logged in successfully!', 'success')
-        navigate('/dashboard')
+        navigate('/dashboard' + window.location.search)
       }
     } catch (error) {
       showToast(error.message, 'error')
@@ -87,31 +98,11 @@ export default function Login() {
     }
   }
 
-  const onFileChange = async (e) => {
+  const onFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0]
-      const reader = new FileReader()
-      reader.addEventListener('load', () => {
-        setImageSrc(reader.result)
-        setShowCropModal(true)
-      })
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const onCropComplete = (croppedArea, croppedAreaPixels) => {
-    setCroppedAreaPixels(croppedAreaPixels)
-  }
-
-  const generateCroppedImage = async () => {
-    try {
-      const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels)
-      setPicture(new File([croppedImageBlob], 'profile.jpg', { type: 'image/jpeg' }))
-      setCroppedPreviewUrl(URL.createObjectURL(croppedImageBlob))
-      setShowCropModal(false)
-    } catch (e) {
-      console.error(e)
-      showToast('Failed to crop image', 'error')
+      setPicture(file)
+      setPicturePreview(URL.createObjectURL(file))
     }
   }
 
@@ -125,15 +116,16 @@ export default function Login() {
       </button>
       <div className="login-card" style={{ background: '#0a0a0c', borderColor: 'rgba(255,255,255,0.08)' }}>
         {/* Logo */}
-        <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <img
             src="/cricauction-logo.jpeg"
             alt="CricAuction"
-            style={{ width: 140, height: 'auto', borderRadius: 14, boxShadow: '0 8px 28px rgba(0,0,0,0.6)' }}
+            style={{ width: 80, height: 'auto', borderRadius: 14, boxShadow: '0 8px 28px rgba(0,0,0,0.6)' }}
           />
+          <span style={{ fontFamily: 'Rajdhani, sans-serif', fontWeight: 800, fontSize: 22, color: '#ffffff', letterSpacing: 1.5 }}>CricAuction</span>
         </div>
         <p style={{ color: '#8892a4', marginBottom: 28, fontSize: 13, lineHeight: 1.5 }}>
-          {isSignUp ? 'Create a new account to get started' : 'Sign in to access your auctions'}
+          {isSignUp ? 'Create a new account to get started' : 'Sign in with your phone number'}
         </p>
 
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -150,8 +142,8 @@ export default function Login() {
                     overflow: 'hidden', position: 'relative'
                   }}
                 >
-                  {croppedPreviewUrl ? (
-                    <img src={croppedPreviewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {picturePreview ? (
+                    <img src={picturePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <span style={{ fontSize: 32, color: 'rgba(255,255,255,0.4)' }}>+</span>
                   )}
@@ -167,7 +159,7 @@ export default function Login() {
 
               <input
                 type="text"
-                placeholder="Full Name"
+                placeholder="Full Name *"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
@@ -176,25 +168,51 @@ export default function Login() {
               />
               <input
                 type="tel"
-                placeholder="Mobile Number"
+                placeholder="Mobile Number *"
                 value={mobile}
                 onChange={e => setMobile(e.target.value)}
                 required
                 className="form-input"
                 style={{ textAlign: 'left', background: '#121216', borderColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }}
               />
+
+              {/* Gender Selection */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                {['Male', 'Female'].map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGender(g)}
+                    style={{
+                      flex: 1, padding: '10px 0', borderRadius: 8, cursor: 'pointer',
+                      background: gender === g ? 'var(--blue)' : '#121216',
+                      border: `1px solid ${gender === g ? 'var(--blue)' : 'rgba(255,255,255,0.1)'}`,
+                      color: gender === g ? '#fff' : '#8892a4',
+                      fontWeight: 700, fontSize: 13, transition: 'all 0.2s',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                    }}
+                  >
+                    {g === 'Male' ? '♂' : '♀'} {g}
+                  </button>
+                ))}
+              </div>
             </>
           )}
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            className="form-input"
-            style={{ textAlign: 'left', background: '#121216', borderColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }}
-            autoComplete="email"
-          />
+
+          {/* Phone field for sign-in, or shown as readonly info in sign-up (mobile is already the key) */}
+          {!isSignUp && (
+            <input
+              type="tel"
+              placeholder="Phone Number"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              required
+              className="form-input"
+              style={{ textAlign: 'left', background: '#121216', borderColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }}
+              autoComplete="tel"
+            />
+          )}
+
           <input
             type="password"
             placeholder="Password"
@@ -218,7 +236,7 @@ export default function Login() {
         <div style={{ marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20 }}>
           <button
             type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => { setIsSignUp(!isSignUp); setPhone(''); setPassword('') }}
             style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', fontSize: 13, fontWeight: 600, width: '100%' }}
           >
             {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
@@ -230,33 +248,6 @@ export default function Login() {
           Powered by <img src="/bricx-logo.png" alt="BricX" style={{ height: 44, width: 'auto' }} />
         </div>
       </div>
-
-      {/* Crop Modal */}
-      {showCropModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Cropper
-              image={imageSrc}
-              crop={crop}
-              zoom={zoom}
-              aspect={1}
-              cropShape="round"
-              showGrid={false}
-              onCropChange={setCrop}
-              onCropComplete={onCropComplete}
-              onZoomChange={setZoom}
-            />
-          </div>
-          <div style={{ padding: 20, display: 'flex', justifyContent: 'center', gap: 20, background: '#121216' }}>
-            <button type="button" onClick={() => setShowCropModal(false)} className="btn" style={{ background: '#333', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer' }}>Cancel</button>
-            <button type="button" onClick={generateCroppedImage} className="btn btn-primary" style={{ padding: '10px 20px', cursor: 'pointer' }}>Save Crop</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -1,7 +1,6 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Cropper from 'react-easy-crop'
-import getCroppedImg from '../lib/cropImage'
+
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { exportAuctionPDF, exportAuctionCSV } from '../lib/exportUtils'
@@ -21,15 +20,6 @@ export default function SideMenu({ onClose }) {
   const [auctionName, setAuctionName] = useState('')
   const [hostEmail, setHostEmail] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const [cropImage, setCropImage] = useState(null)
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
-
-  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
-    setCroppedAreaPixels(croppedAreaPixels)
-  }, [])
 
   async function handleRename() {
     if (!nameInput.trim()) return
@@ -106,7 +96,7 @@ export default function SideMenu({ onClose }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: 2 }}>{activeAuction.join_code}</span>
                 <a 
-                  href={`https://wa.me/?text=${encodeURIComponent(`Join my Elite League Auction "${activeAuction.name}"!\n\nJoin Code: *${activeAuction.join_code}*`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(`Join my Elite League Auction "${activeAuction.name}"!\n\nJoin Code: *${activeAuction.join_code}*\n\nLink: ${window.location.origin}/dashboard?join=${activeAuction.join_code}`)}`}
                   target="_blank"
                   rel="noreferrer"
                   style={{ background: '#25D366', color: 'white', padding: '6px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 2px 8px rgba(37,211,102,0.3)' }}
@@ -259,60 +249,31 @@ export default function SideMenu({ onClose }) {
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Update Tournament Banner</div>
-              
-              {!cropImage ? (
-                <>
-                  <input ref={fileRef3} type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={async (e) => {
-                      const file = e.target.files[0]
-                      if (!file) return
-                      const url = URL.createObjectURL(file)
-                      setCropImage(url)
-                    }}
-                  />
-                  {activeAuction?.banner_url && (
-                    <img src={activeAuction?.banner_url} alt="current banner" style={{ width: '100%', height: 80, borderRadius: 12, objectFit: 'cover', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
-                  )}
-                  <button className="btn btn-primary btn-sm" onClick={() => fileRef3.current?.click()} disabled={loading}>
-                    {loading ? 'Uploading...' : <><Camera size={14} style={{ marginRight: 6 }} />Choose Photo</>}
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
-                </>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ position: 'relative', width: '100%', height: 250, background: '#1a1a1a', borderRadius: 8, overflow: 'hidden' }}>
-                    <Cropper
-                      image={cropImage}
-                      crop={crop}
-                      zoom={zoom}
-                      aspect={16 / 9}
-                      onCropChange={setCrop}
-                      onCropComplete={onCropComplete}
-                      onZoomChange={setZoom}
-                    />
-                  </div>
-                  <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={(e) => setZoom(e.target.value)} style={{ width: '100%' }} />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => { setCropImage(null); setZoom(1); }}>Cancel</button>
-                    <button className="btn btn-primary btn-sm" onClick={async () => {
-                      try {
-                        setLoading(true)
-                        const croppedImage = await getCroppedImg(cropImage, croppedAreaPixels)
-                        const { uploadFile } = await import('../lib/supabase')
-                        const url = await uploadFile(croppedImage, 'logos')
-                        await updateBannerLogo(url)
-                        setCropImage(null)
-                        setView('main')
-                        showToast('Banner updated!', 'success')
-                      } catch(err) {
-                        showToast('Upload error: ' + err.message, 'error')
-                      } finally { setLoading(false) }
-                    }} disabled={loading}>
-                      {loading ? 'Saving...' : 'Save Banner'}
-                    </button>
-                  </div>
-                </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Upload any image as a full-screen banner. It will be shown as-is when someone enters the auction.</div>
+
+              <input ref={fileRef3} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  try {
+                    const { uploadFile } = await import('../lib/supabase')
+                    setLoading(true)
+                    const url = await uploadFile(file, 'logos')
+                    await updateBannerLogo(url)
+                    setView('main')
+                    showToast('Banner updated!', 'success')
+                  } catch(err) {
+                    showToast('Upload error: ' + err.message, 'error')
+                  } finally { setLoading(false) }
+                }}
+              />
+              {activeAuction?.banner_url && (
+                <img src={activeAuction?.banner_url} alt="current banner" style={{ width: '100%', borderRadius: 12, objectFit: 'contain', maxHeight: 120, background: '#111', margin: '0 auto', display: 'block', border: '2px solid var(--border)' }} />
               )}
+              <button className="btn btn-primary btn-sm" onClick={() => fileRef3.current?.click()} disabled={loading}>
+                {loading ? 'Uploading...' : <><Camera size={14} style={{ marginRight: 6 }} />Choose Banner Image</>}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
             </div>
           )
         })()}
