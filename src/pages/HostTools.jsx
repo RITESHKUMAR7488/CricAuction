@@ -273,7 +273,7 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
       const { data, error } = await supabase
         .from('coupon_recipients')
         .select(`
-          id, player_id, player_name, redeemed, created_at,
+          id, user_id, player_id, player_name, redeemed, created_at,
           food_coupons!inner(id, event_name, meal_type, coupon_date)
         `)
         .eq('food_coupons.auction_id', auction.id)
@@ -310,26 +310,17 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
       // Find profiles for these phones
       const { data: profiles, error: profErr } = await supabase
         .from('profiles')
-        .select('id, phone')
+        .select('id, phone, full_name')
         .in('phone', phones)
 
       if (profErr) throw profErr
 
       if (!profiles || profiles.length === 0) {
         setLoading(false)
-        return showToast('No registered players found with these phone numbers', 'error')
+        return showToast('No registered users found with these phone numbers', 'error')
       }
 
-      // Find eligible players in this auction matching these profiles
-      const profileIds = profiles.map(p => p.id)
-      const selectedPlayers = eligiblePlayers.filter(p => profileIds.includes(p.user_id))
-
-      if (selectedPlayers.length === 0) {
-        setLoading(false)
-        return showToast('None of the found profiles are added to this auction', 'error')
-      }
-
-      const missedCount = phones.length - selectedPlayers.length
+      const missedCount = phones.length - profiles.length
 
       // Create the food coupon
       const { data: coupon, error: couponErr } = await supabase
@@ -339,19 +330,27 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
       if (couponErr) throw couponErr
 
       // Link recipients
-      const recipients = selectedPlayers.map(p => ({ coupon_id: coupon.id, user_id: p.user_id, player_id: p.id, player_name: p.name }))
+      const recipients = profiles.map(p => {
+        const playerMatch = eligiblePlayers.find(ep => ep.user_id === p.id)
+        return {
+          coupon_id: coupon.id,
+          user_id: p.id,
+          player_id: playerMatch ? playerMatch.id : null,
+          player_name: playerMatch ? playerMatch.name : (p.full_name || 'User')
+        }
+      })
       const { error: recipErr } = await supabase.from('coupon_recipients').insert(recipients)
       if (recipErr) throw recipErr
 
       // Send notifications
-      const notifs = selectedPlayers.map(p => ({
-        user_id: p.user_id, auction_id: auction.id, type: 'coupon_issued',
+      const notifs = profiles.map(p => ({
+        user_id: p.id, auction_id: auction.id, type: 'coupon_issued',
         title: '🎟️ Food Coupon Received!',
         body: `You've received a food coupon for "${eventName.trim()}" (${mealType}) on ${new Date(couponDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. Check your Profile → Food Coupons.`,
       }))
       await supabase.from('notifications').insert(notifs)
 
-      setCreatedCount(selectedPlayers.length)
+      setCreatedCount(profiles.length)
       setNotFoundCount(missedCount)
       setCreated(true)
     } catch (err) {
@@ -374,7 +373,7 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
           </div>
           {notFoundCount > 0 && (
             <div style={{ padding: '8px 12px', background: 'rgba(245,166,35,0.08)', color: 'var(--gold)', borderRadius: 8, fontSize: 13, border: '1px solid rgba(245,166,35,0.2)' }}>
-              Note: {notFoundCount} phone number(s) were not found or not part of this auction.
+              Note: {notFoundCount} phone number(s) were not found in the database.
             </div>
           )}
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Players have been notified in-app.</div>
@@ -391,17 +390,18 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
     )
   }
 
-  // Group coupons by player for the manage tab
+  // Group coupons by user for the manage tab
   const groupedCoupons = {}
   recipientsData.forEach(r => {
-    if (!groupedCoupons[r.player_id]) {
-      groupedCoupons[r.player_id] = {
+    const key = r.user_id || r.player_id || 'unknown';
+    if (!groupedCoupons[key]) {
+      groupedCoupons[key] = {
         player_name: r.player_name,
-        player_id: r.player_id,
+        user_id: key,
         coupons: []
       }
     }
-    groupedCoupons[r.player_id].coupons.push(r)
+    groupedCoupons[key].coupons.push(r)
   })
   const groupedList = Object.values(groupedCoupons)
 
@@ -472,7 +472,7 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
               style={{ resize: 'vertical' }}
             />
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.5 }}>
-              Coupons will be issued to all matching registered players who are part of this auction.
+              Coupons will be issued to all matching registered users based on their phone numbers.
             </div>
           </div>
 
@@ -480,7 +480,7 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
             type="submit"
             className="btn btn-primary"
             style={{ padding: '14px', fontSize: 15, fontWeight: 700, marginTop: 8 }}
-            disabled={loading || eligiblePlayers.length === 0 || !bulkPhones.trim()}
+            disabled={loading || !bulkPhones.trim()}
           >
             {loading ? 'Issuing...' : '🎟️ Issue Coupons'}
           </button>
@@ -496,11 +496,11 @@ function CreateCouponScreen({ auction, players, loadingPlayers, onBack }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {groupedList.map(group => {
-                const isExpanded = expandedPlayerId === group.player_id
+                const isExpanded = expandedPlayerId === group.user_id
                 return (
-                  <div key={group.player_id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg-card)' }}>
+                  <div key={group.user_id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg-card)' }}>
                     <div 
-                      onClick={() => setExpandedPlayerId(isExpanded ? null : group.player_id)}
+                      onClick={() => setExpandedPlayerId(isExpanded ? null : group.user_id)}
                       style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: isExpanded ? 'var(--bg-elevated)' : 'transparent' }}
                     >
                       <div>
