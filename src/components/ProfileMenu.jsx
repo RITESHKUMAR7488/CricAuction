@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, uploadFile } from '../lib/supabase'
 import { showToast } from './Toast'
-import { User, X, Pencil, LogOut, Camera, Phone, ExternalLink, ChevronRight } from 'lucide-react'
+import { User, X, Pencil, LogOut, Camera, Phone, ExternalLink, ChevronRight, Trophy, Ticket, Video, Bell } from 'lucide-react'
 
 export default function ProfileMenu({ buttonStyle }) {
   const { user, logout } = useApp()
@@ -164,16 +164,25 @@ export default function ProfileMenu({ buttonStyle }) {
               <span style={{ flex: 1, textAlign: 'left' }}>Edit Profile</span>
             </button>
 
-            <button
-              onClick={() => { setProfileOpen(false); navigate('/profile') }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'none'}
-            >
-              <ExternalLink size={15} color="var(--text-muted)" />
-              <span style={{ flex: 1, textAlign: 'left' }}>Full Profile & Stats</span>
-              <ChevronRight size={13} color="var(--text-muted)" />
-            </button>
+            {[
+              { label: 'Profile & Stats', tab: 'Profile', icon: <User size={15} color="var(--text-muted)" /> },
+              { label: 'My Tournaments', tab: 'My Tournaments', icon: <Trophy size={15} color="var(--text-muted)" /> },
+              { label: 'Food Coupons', tab: 'Food Coupons', icon: <Ticket size={15} color="var(--text-muted)" /> },
+              { label: 'My Library', tab: 'My Library', icon: <Video size={15} color="var(--text-muted)" /> },
+              { label: 'Notifications', tab: 'Notifications', icon: <Bell size={15} color="var(--text-muted)" /> },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={() => { setProfileOpen(false); navigate('/profile', { state: { tab: item.tab } }) }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                {item.icon}
+                <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
+                <ChevronRight size={13} color="var(--text-muted)" />
+              </button>
+            ))}
 
             <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
 

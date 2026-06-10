@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, uploadFile } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
@@ -70,10 +70,12 @@ function YouTubeCard({ video, onDelete, canDelete }) {
 
 // ─── FoodCouponCard ───────────────────────────────────────────────────────────
 
-function FoodCouponCard({ coupon, recipientId, onDelete }) {
+function FoodCouponCard({ coupon, recipientId, playerName, onDelete }) {
   const [showLargeQR, setShowLargeQR] = useState(false)
   const qrData = JSON.stringify({ couponId: coupon.coupon_id, userId: coupon.user_id })
   const isRedeemed = coupon.redeemed
+  const fc = Array.isArray(coupon.food_coupons) ? coupon.food_coupons[0] : coupon.food_coupons;
+  const auc = fc?.auctions ? (Array.isArray(fc.auctions) ? fc.auctions[0] : fc.auctions) : null;
 
   return (
     <>
@@ -117,20 +119,36 @@ function FoodCouponCard({ coupon, recipientId, onDelete }) {
               letterSpacing: 1.5, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4,
             }}><Utensils size={10} /> Food Coupon</div>
             <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', fontFamily: 'Rajdhani', letterSpacing: 0.5, marginBottom: 4 }}>
-              {coupon.food_coupons?.event_name || 'Event'}
+              {fc?.event_name || 'Event'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              {auc?.logo_url ? (
+                <img src={auc.logo_url} alt="Auction Logo" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <Gavel size={12} color="var(--text-muted)" />
+              )}
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>
+                {auc?.name || 'Auction'}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 700, marginBottom: 8 }}>
+              Issued to: {playerName}
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{
                 background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.3)',
                 borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, color: 'var(--gold)',
               }}>
-                {coupon.food_coupons?.meal_type}
+                {fc?.meal_type || 'Food'}
               </span>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                {coupon.food_coupons?.coupon_date
-                  ? new Date(coupon.food_coupons.coupon_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                {fc?.coupon_date
+                  ? new Date(fc.coupon_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                   : ''}
               </span>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+              Issued: {new Date(coupon.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
             </div>
           </div>
 
@@ -201,10 +219,24 @@ function FoodCouponCard({ coupon, recipientId, onDelete }) {
             }}
           >
             <div style={{ fontSize: 22, fontWeight: 900, color: '#111', fontFamily: 'Rajdhani', marginBottom: 4, textAlign: 'center' }}>
-              {coupon.food_coupons?.event_name || 'Event'}
+              {fc?.event_name || 'Event'}
             </div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#666', marginBottom: 24, textTransform: 'uppercase', letterSpacing: 1 }}>
-              {coupon.food_coupons?.meal_type} COUPON
+            {auc && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                {auc.logo_url && (
+                  <img src={auc.logo_url} alt="Logo" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />
+                )}
+                <span style={{ fontSize: 13, color: '#444', fontWeight: 600 }}>{auc.name}</span>
+              </div>
+            )}
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+              {fc?.meal_type || 'FOOD'} COUPON
+            </div>
+            <div style={{ fontSize: 14, color: '#222', fontWeight: 800, marginBottom: 8, textAlign: 'center' }}>
+              {playerName}
+            </div>
+            <div style={{ fontSize: 11, color: '#666', marginBottom: 24, textAlign: 'center' }}>
+              Issued: {new Date(coupon.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
             </div>
             
             <QRCodeSVG value={qrData} size={240} level="M" />
@@ -280,9 +312,16 @@ const TAB_ICON_COMPONENTS = [User, Trophy, Ticket, Video, Bell]
 export default function Profile() {
   const { user, logout } = useApp()
   const navigate = useNavigate()
+  const location = useLocation()
   const fileRef = useRef()
 
-  const [activeTab, setActiveTab] = useState('Profile')
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'Profile')
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab)
+    }
+  }, [location.state?.tab])
   const [profile, setProfile] = useState(null)
   const [editMode, setEditMode] = useState(false)
   const [editName, setEditName] = useState('')
@@ -330,7 +369,15 @@ export default function Profile() {
 
   useEffect(() => {
     if (activeTab === 'My Tournaments') loadMyTournaments()
-    if (activeTab === 'Food Coupons') loadMyCoupons()
+    if (activeTab === 'Food Coupons') {
+      loadMyCoupons()
+      const channel = supabase.channel('my_coupons_changes')
+        .on('postgres', { event: '*', schema: 'public', table: 'coupon_recipients', filter: `user_id=eq.${user.id}` }, () => {
+          loadMyCoupons(true)
+        })
+        .subscribe()
+      return () => { supabase.removeChannel(channel) }
+    }
     if (activeTab === 'My Library') loadVideos()
     if (activeTab === 'Notifications') loadNotifications()
   }, [activeTab])
@@ -403,15 +450,15 @@ export default function Profile() {
     setLoadingTournaments(false)
   }
 
-  async function loadMyCoupons() {
-    setLoadingCoupons(true)
+  async function loadMyCoupons(background = false) {
+    if (!background) setLoadingCoupons(true)
     const { data } = await supabase
       .from('coupon_recipients')
-      .select('*, food_coupons(event_name, meal_type, coupon_date, auction_id)')
+      .select('*, food_coupons(event_name, meal_type, coupon_date, auction_id, auctions(name, logo_url))')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     setMyCoupons(data || [])
-    setLoadingCoupons(false)
+    if (!background) setLoadingCoupons(false)
   }
 
   async function loadVideos() {
@@ -783,6 +830,7 @@ export default function Profile() {
                   key={coupon.id}
                   coupon={coupon}
                   recipientId={coupon.id}
+                  playerName={profile?.full_name || user?.email?.split('@')[0] || 'Player'}
                   onDelete={handleDeleteCoupon}
                 />
               ))

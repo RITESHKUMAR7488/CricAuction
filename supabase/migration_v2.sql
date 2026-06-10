@@ -62,7 +62,7 @@ ALTER TABLE auction_videos ENABLE ROW LEVEL SECURITY;
 -- ── Food Coupons Policies ─────────────────────────────────────
 DROP POLICY IF EXISTS "Food coupons read" ON food_coupons;
 CREATE POLICY "Food coupons read" ON food_coupons FOR SELECT USING (
-  EXISTS (SELECT 1 FROM auctions WHERE id = food_coupons.auction_id AND (host_id = auth.uid() OR EXISTS (SELECT 1 FROM auction_members WHERE auction_id = auctions.id AND user_id = auth.uid())))
+  EXISTS (SELECT 1 FROM auctions WHERE id = food_coupons.auction_id AND (host_id = auth.uid() OR EXISTS (SELECT 1 FROM auction_members WHERE auction_id = auctions.id AND user_id = auth.uid()) OR EXISTS (SELECT 1 FROM players WHERE auction_id = auctions.id AND user_id = auth.uid())))
 );
 DROP POLICY IF EXISTS "Food coupons insert" ON food_coupons;
 CREATE POLICY "Food coupons insert" ON food_coupons FOR INSERT WITH CHECK (
@@ -126,7 +126,7 @@ CREATE POLICY "Notifications delete own" ON notifications FOR DELETE USING (user
 -- ── Auction Videos Policies ───────────────────────────────────
 DROP POLICY IF EXISTS "Auction videos read" ON auction_videos;
 CREATE POLICY "Auction videos read" ON auction_videos FOR SELECT USING (
-  EXISTS (SELECT 1 FROM auctions WHERE id = auction_videos.auction_id AND (host_id = auth.uid() OR EXISTS (SELECT 1 FROM auction_members WHERE auction_id = auctions.id AND user_id = auth.uid())))
+  EXISTS (SELECT 1 FROM auctions WHERE id = auction_videos.auction_id AND (host_id = auth.uid() OR EXISTS (SELECT 1 FROM auction_members WHERE auction_id = auctions.id AND user_id = auth.uid()) OR EXISTS (SELECT 1 FROM players WHERE auction_id = auctions.id AND user_id = auth.uid())))
   OR added_by = auth.uid()
 );
 DROP POLICY IF EXISTS "Auction videos insert" ON auction_videos;

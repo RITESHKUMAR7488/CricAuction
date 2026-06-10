@@ -50,7 +50,7 @@ export default function Header({ onMenuToggle }) {
 
       <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <ProfileMenu buttonStyle={{ marginRight: 8 }} />
-        <button className="header-icon-btn" onClick={toggleFullScreen} title="Toggle Fullscreen" style={{ fontSize: 16, color: '#fff' }}>
+        <button className="header-icon-btn hide-on-mobile" onClick={toggleFullScreen} title="Toggle Fullscreen" style={{ fontSize: 16, color: '#fff' }}>
           {isFullscreen ? '↙️' : '↗️'}
         </button>
         <button className="header-icon-btn" onClick={onMenuToggle} id="menu-btn" title="Menu" style={{ fontSize: 16, color: '#fff' }}>
