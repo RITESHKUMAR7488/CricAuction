@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useApp } from '../context/AppContext'
@@ -8,18 +8,36 @@ import { showToast } from './Toast'
 import {
   Plus, RefreshCw, Pencil, Image, ImagePlay, Crown,
   FileText, BarChart2, RotateCcw, Trash2, LogOut,
-  Camera, Check, Circle, LayoutDashboard, User
+  Camera, Check, Circle, LayoutDashboard, User,
+  Trophy, Ticket, Video, Bell, ChevronRight, Lock
 } from 'lucide-react'
 
 export default function SideMenu({ onClose }) {
   const navigate = useNavigate()
-  const { leagueName, updateLeagueName, leagueLogo, updateLeagueLogo, updateBannerLogo, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole, clearActiveAuction } = useApp()
+  const { leagueName, updateLeagueName, leagueLogo, updateLeagueLogo, updateBannerLogo, activeAuction, auctions, createAuction, switchAuction, resetAuction, loadAuctions, userRole, clearActiveAuction, user, logout, joinedAuctionIds } = useApp()
   const [view, setView] = useState('main') // main | rename | updatelogo | newauction | switchauction
   const [nameInput, setNameInput] = useState(activeAuction?.name || leagueName)
   const [logoInput, setLogoInput] = useState(activeAuction?.logo_url || leagueLogo)
   const [auctionName, setAuctionName] = useState('')
-  const [hostEmail, setHostEmail] = useState('')
+  const [hostPhone, setHostPhone] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Profile data
+  const [profile, setProfile] = useState(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!user) return
+    supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
+      if (data) setProfile(data)
+    })
+    supabase.from('notifications').select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id).eq('read', false)
+      .then(({ count }) => setUnreadCount(count || 0))
+  }, [user])
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Player'
+  const avatarUrl = profile?.avatar_url || null
 
   async function handleRename() {
     if (!nameInput.trim()) return
@@ -78,39 +96,116 @@ export default function SideMenu({ onClose }) {
     <div className="menu-overlay">
       <div className="menu-backdrop" onClick={onClose} style={{ zIndex: 1 }} />
 
-      <div className="menu-panel" style={{ zIndex: 3 }}>
-        <button 
-          onClick={onClose} 
-          style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 28, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1 }}
-        >
-          &times;
-        </button>
-        <div style={{ marginBottom: 16, paddingRight: 24 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Active Auction</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-            {activeAuction ? activeAuction.name : 'None selected'}
+      <div className="menu-panel" style={{ zIndex: 3, padding: 0, display: 'flex', flexDirection: 'column' }}>
+
+        {/* ── Profile Header ── */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(74,158,255,0.12) 0%, rgba(74,158,255,0.04) 100%)',
+          borderBottom: '1px solid var(--border)',
+          padding: '20px 20px 16px',
+          position: 'relative',
+        }}>
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}
+          >
+            &times;
+          </button>
+
+
+          {/* Avatar + Name */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+              border: '2.5px solid var(--blue)', boxShadow: '0 0 14px rgba(74,158,255,0.3)',
+            }}>
+              {avatarUrl
+                ? <img src={avatarUrl} alt="me" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <div style={{ width: '100%', height: '100%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={22} color="var(--blue)" /></div>
+              }
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Rajdhani', letterSpacing: 0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {displayName}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                {user?.email}
+              </div>
+              {userRole === 'host' && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--gold)', background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.3)', borderRadius: 20, padding: '2px 7px', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 4, display: 'inline-block' }}>Host</span>
+              )}
+            </div>
           </div>
-          {activeAuction && userRole === 'host' && (
-            <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(74,158,255,0.08)', borderRadius: 8, border: '1px dashed rgba(74,158,255,0.3)' }}>
-              <div style={{ fontSize: 10, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Join Code</div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: 2 }}>{activeAuction.join_code}</span>
-                <a 
-                  href={`https://wa.me/?text=${encodeURIComponent(`Join my Elite League Auction "${activeAuction.name}"!\n\nJoin Code: *${activeAuction.join_code}*\n\nLink: ${window.location.origin}/dashboard?join=${activeAuction.join_code}`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ background: '#25D366', color: 'white', padding: '6px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 2px 8px rgba(37,211,102,0.3)' }}
-                >
-                  SHARE <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.888-.788-1.489-1.761-1.663-2.06-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                </a>
+
+          {/* Active Auction pill */}
+          {activeAuction && (
+            <div style={{ marginTop: 14, padding: '8px 12px', background: 'rgba(74,158,255,0.08)', borderRadius: 8, border: '1px dashed rgba(74,158,255,0.3)' }}>
+              <div style={{ fontSize: 9, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 }}>Active Auction</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeAuction.name}</span>
+                {userRole === 'host' && (
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`Join my Elite League Auction "${activeAuction.name}"!\n\nJoin Code: *${activeAuction.join_code}*\n\nLink: ${window.location.origin}/dashboard?join=${activeAuction.join_code}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ background: '#25D366', color: 'white', padding: '4px 8px', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    SHARE · <b>{activeAuction.join_code}</b>
+                  </a>
+                )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="menu-divider" />
+        {/* ── Scrollable Body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
 
-        {view === 'main' && <>
+          {/* ── Profile Section ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, padding: '10px 16px 4px' }}>My Profile</div>
+
+          {[
+            { label: 'Edit Profile', icon: <Pencil size={15} color="var(--text-muted)" />, tab: null, action: () => { onClose(); navigate('/profile', { state: { tab: 'Profile' } }) } },
+            { label: 'Profile & Stats', icon: <User size={15} color="var(--text-muted)" />, tab: 'Profile' },
+            { label: 'My Tournaments', icon: <Trophy size={15} color="var(--text-muted)" />, tab: 'My Tournaments' },
+            { label: 'Food Coupons', icon: <Ticket size={15} color="var(--text-muted)" />, tab: 'Food Coupons' },
+            { label: 'My Library', icon: <Video size={15} color="var(--text-muted)" />, tab: 'My Library' },
+          ].map(item => (
+            <button
+              key={item.label}
+              onClick={item.action || (() => { onClose(); navigate('/profile', { state: { tab: item.tab } }) })}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              {item.icon}
+              <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
+              <ChevronRight size={13} color="var(--text-muted)" />
+            </button>
+          ))}
+          <button
+            onClick={() => { onClose(); navigate('/profile', { state: { tab: 'Notifications' } }) }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: 13, fontWeight: 500, position: 'relative' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <Bell size={15} color="var(--text-muted)" />
+            <span style={{ flex: 1, textAlign: 'left' }}>Notifications</span>
+            {unreadCount > 0 && (
+              <span style={{ background: 'var(--red)', color: '#fff', borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+            <ChevronRight size={13} color="var(--text-muted)" />
+          </button>
+
+          <div className="menu-divider" />
+
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, padding: '10px 16px 4px' }}>Auction</div>
+
+          {view === 'main' && <>
           <div className="menu-item" onClick={() => { setView('newauction'); setAuctionName('') }} id="menu-create-auction">
             <Plus size={16} /> Create New Auction
           </div>
@@ -129,7 +224,7 @@ export default function SideMenu({ onClose }) {
               <div className="menu-item" onClick={() => { setView('updatebanner'); }} id="menu-update-banner">
                 <ImagePlay size={16} /> Update Banner
               </div>
-              <div className="menu-item" onClick={() => { setView('addhost'); setHostEmail('') }} id="menu-add-host">
+              <div className="menu-item" onClick={() => { setView('addhost'); setHostPhone('') }} id="menu-add-host">
                 <Crown size={16} /> Add Co-Host
               </div>
               <div className="menu-divider" />
@@ -155,22 +250,6 @@ export default function SideMenu({ onClose }) {
             <FileText size={16} />
             {loading ? 'Generating...' : 'Download PDF Report'}
           </div>
-          <div
-            className={`menu-item${!activeAuction || loading ? ' disabled' : ''}`}
-            style={{ opacity: !activeAuction ? 0.4 : 1, cursor: !activeAuction ? 'not-allowed' : 'pointer' }}
-            onClick={async () => {
-              if (!activeAuction || loading) return
-              setLoading(true)
-              try { await exportAuctionCSV(activeAuction.id, leagueName) }
-              catch(e) { showToast('Export error: ' + e.message, 'error') }
-              finally { setLoading(false) }
-            }}
-            id="menu-download-csv"
-          >
-            <BarChart2 size={16} />
-            {loading ? 'Exporting...' : 'Download CSV Files'}
-          </div>
-
           {userRole === 'host' && (
             <>
               <div className="menu-divider" />
@@ -191,14 +270,18 @@ export default function SideMenu({ onClose }) {
             <User size={16} /> About Founder
           </div>
           <div className="menu-item" onClick={async () => {
-            await supabase.auth.signOut()
+            await logout()
             onClose()
           }} id="menu-logout">
             <LogOut size={16} /> Log Out
           </div>
-        </>}
+          </>}
 
-        {view === 'rename' && (
+          {/* Sub-views — shown inside scrollable body */}
+          {view !== 'main' && (
+            <div style={{ padding: '0 16px 16px' }}>
+
+          {view === 'rename' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Rename {activeAuction ? 'Auction' : 'League'}</div>
             <input
@@ -213,9 +296,9 @@ export default function SideMenu({ onClose }) {
               <button className="btn btn-primary btn-sm" onClick={handleRename} id="rename-league-save">Save</button>
             </div>
           </div>
-        )}
+          )}
 
-        {view === 'updatelogo' && (() => {
+          {view === 'updatelogo' && (() => {
           const fileRef2 = React.createRef()
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -247,7 +330,7 @@ export default function SideMenu({ onClose }) {
           )
         })()}
 
-        {view === 'updatebanner' && (() => {
+          {view === 'updatebanner' && (() => {
           const fileRef3 = React.createRef()
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -281,28 +364,33 @@ export default function SideMenu({ onClose }) {
           )
         })()}
 
-        {view === 'addhost' && (
+          {view === 'addhost' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Add Co-Host</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Enter the email address of the person you want to make a co-host.</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Enter the mobile number of the person you want to make a co-host.</div>
             <input
-              type="email"
+              type="tel"
               className="form-input"
-              value={hostEmail}
-              onChange={e => setHostEmail(e.target.value)}
-              placeholder="e.g. host2@example.com"
+              value={hostPhone}
+              onChange={e => setHostPhone(e.target.value)}
+              placeholder="e.g. 9876543210"
             />
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => setView('main')}>Cancel</button>
               <button className="btn btn-primary btn-sm" onClick={async () => {
-                if (!hostEmail) return;
+                if (!hostPhone) return;
                 setLoading(true);
                 try {
+                  // Convert phone to deterministic email used by Auth
+                  const digits = hostPhone.replace(/\D/g, '');
+                  if (digits.length < 5) throw new Error('Please enter a valid mobile number');
+                  const hostEmailToSave = `${digits}@cricauction.app`;
+
                   // Fetch current co_hosts
                   const { data } = await supabase.from('auctions').select('co_hosts').eq('id', activeAuction.id).single();
                   const currentHosts = data?.co_hosts || [];
-                  if (!currentHosts.includes(hostEmail.toLowerCase())) {
-                    const newHosts = [...currentHosts, hostEmail.toLowerCase()];
+                  if (!currentHosts.includes(hostEmailToSave)) {
+                    const newHosts = [...currentHosts, hostEmailToSave];
                     const { error } = await supabase.from('auctions').update({ co_hosts: newHosts }).eq('id', activeAuction.id);
                     if (error) {
                       if (error.message.includes('co_hosts')) {
@@ -325,7 +413,7 @@ export default function SideMenu({ onClose }) {
           </div>
         )}
 
-        {view === 'newauction' && (
+          {view === 'newauction' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>New Auction</div>
             <input
@@ -344,35 +432,60 @@ export default function SideMenu({ onClose }) {
           </div>
         )}
 
-        {view === 'switchauction' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Select Auction</div>
-            {auctions.map(a => (
+          {view === 'switchauction' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Switch Auction</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>Select an auction you've joined or hosted.</div>
+            {auctions.filter(a => {
+              const isHost   = a.host_id === user?.id
+              const isCoHost = a.co_hosts && a.co_hosts.includes(user?.email)
+              return isHost || isCoHost || joinedAuctionIds.has(a.id)
+            }).map(a => {
+              const isActive = activeAuction?.id === a.id
+              return (
               <div
                 key={a.id}
-                className={`menu-item${activeAuction?.id === a.id ? ' active' : ''}`}
-                style={activeAuction?.id === a.id ? { background: 'rgba(74,158,255,0.1)', borderColor: 'rgba(74,158,255,0.3)', color: 'var(--blue)' } : {}}
-                onClick={() => { switchAuction(a); setView('main'); onClose(); }}
+                className={`menu-item${isActive ? ' active' : ''}`}
+                style={{
+                  ...(isActive ? { background: 'rgba(74,158,255,0.1)', borderColor: 'rgba(74,158,255,0.3)', color: 'var(--blue)' } : {}),
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  switchAuction(a).catch(() => {})
+                  setView('main')
+                  onClose()
+                }}
                 id={`switch-auction-${a.id}`}
               >
-                {activeAuction?.id === a.id
+                {isActive
                   ? <Check size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
                   : <Circle size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 }
-                <div>
-                  <div style={{ fontWeight: 600 }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
+                  <div style={{ fontSize: 11, color: isActive ? 'var(--blue)' : 'var(--text-muted)' }}>
                     {new Date(a.created_at).toLocaleDateString()}
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
+            {auctions.filter(a => a.host_id === user?.id || (a.co_hosts && a.co_hosts.includes(user?.email)) || joinedAuctionIds.has(a.id)).length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
+                No accessible auctions.
+              </div>
+            )}
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setView('main')}>Back</button>
           </div>
-        )}
+          )}
+            </div>
+          )}
 
-        <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
-          <img src="/bricx-logo.png" alt="Powered by BRICX" style={{ width: 140, objectFit: 'contain', marginBottom: 12 }} />
+          {/* BricX logo at the bottom */}
+          <div style={{ marginTop: 'auto', paddingTop: 24, paddingBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
+            <img src="/bricx-logo.png" alt="Powered by BRICX" style={{ width: 140, objectFit: 'contain' }} />
+          </div>
+
         </div>
       </div>
     </div>

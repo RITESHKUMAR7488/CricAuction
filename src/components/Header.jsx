@@ -1,33 +1,35 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import ProfileMenu from './ProfileMenu'
+import { supabase } from '../lib/supabase'
+import { Bell, User } from 'lucide-react'
 
 export default function Header({ onMenuToggle }) {
-  const { leagueName, leagueLogo, activeAuction } = useApp()
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const { leagueName, leagueLogo, activeAuction, user, userRole, joinedAuctionIds } = useApp()
+  const navigate = useNavigate()
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [avatarUrl, setAvatarUrl] = useState(null)
 
   const currentLogo = activeAuction?.logo_url || leagueLogo
   const currentName = activeAuction?.name || leagueName
 
+  // Load unread notification count
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
-  }, [])
+    if (!user) return
+    supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+      .then(({ count }) => setUnreadCount(count || 0))
+  }, [user])
 
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message}`)
-      })
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen()
-      }
-    }
-  }
+  // Load avatar
+  useEffect(() => {
+    if (!user) return
+    supabase.from('profiles').select('avatar_url').eq('id', user.id).single()
+      .then(({ data }) => { if (data?.avatar_url) setAvatarUrl(data.avatar_url) })
+  }, [user])
 
   return (
     <header className="header">
@@ -41,24 +43,64 @@ export default function Header({ onMenuToggle }) {
         </div>
       </div>
 
-      {activeAuction && (
+      {activeAuction && (userRole === 'host' || joinedAuctionIds.has(activeAuction.id)) && (
         <div className="header-live-badge">
           <div className="header-live-dot" />
           LIVE AUCTION
         </div>
       )}
 
-      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <ProfileMenu buttonStyle={{ marginRight: 8 }} />
-        <button className="header-icon-btn hide-on-mobile" onClick={toggleFullScreen} title="Toggle Fullscreen" style={{ fontSize: 16, color: '#fff' }}>
-          {isFullscreen ? '↙️' : '↗️'}
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Notification Bell */}
+        <button
+          id="header-notification-btn"
+          onClick={() => navigate('/profile', { state: { tab: 'Notifications' } })}
+          title="Notifications"
+          style={{
+            position: 'relative', background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%',
+            width: 38, height: 38, cursor: 'pointer', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, transition: 'background 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+        >
+          <Bell size={18} />
+          {unreadCount > 0 && (
+            <span style={{
+              position: 'absolute', top: 2, right: 2,
+              background: 'var(--red)', color: '#fff',
+              borderRadius: '50%', width: 14, height: 14,
+              fontSize: 8, fontWeight: 800,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1.5px solid var(--bg-elevated)',
+            }}>
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
-        <button className="header-icon-btn" onClick={onMenuToggle} id="menu-btn" title="Menu" style={{ fontSize: 16, color: '#fff' }}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="2" y="4" width="14" height="1.8" rx="0.9" fill="#fff"/>
-            <rect x="2" y="8.1" width="14" height="1.8" rx="0.9" fill="#fff"/>
-            <rect x="2" y="12.2" width="10" height="1.8" rx="0.9" fill="#fff"/>
-          </svg>
+
+        {/* Profile icon — opens SideMenu */}
+        <button
+          id="header-profile-btn"
+          onClick={onMenuToggle}
+          title="Profile & Menu"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0,
+          }}
+        >
+          <div style={{
+            width: 38, height: 38, borderRadius: '50%', overflow: 'hidden',
+            border: '2px solid var(--blue)', flexShrink: 0,
+            boxShadow: '0 0 10px rgba(74,158,255,0.3)',
+          }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="me" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <div style={{ width: '100%', height: '100%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="var(--blue)" /></div>
+            }
+          </div>
         </button>
       </div>
     </header>

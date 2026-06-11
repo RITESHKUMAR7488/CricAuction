@@ -311,8 +311,20 @@ export async function exportAuctionPDF(auctionId, leagueName) {
     doc.text(`Page ${i} of ${totalPages}`, PAGE_W / 2, 292, { align: 'center' })
   }
 
+  const safeLg = (lg || 'ELITE_LEAGUE').replace(/[^a-z0-9]/gi, '_').toLowerCase()
   const safeName = (auction?.name || 'auction').replace(/[^a-z0-9]/gi, '_').toLowerCase()
-  doc.save(`${lg.replace(/\s+/g, '_')}_${safeName}_report.pdf`)
+  const fileName = `${safeLg}_${safeName}_report.pdf`
+  
+  // Explicitly generate Blob to ensure correct mime type and download behaviour across browsers
+  const pdfBlob = doc.output('blob')
+  const url = URL.createObjectURL(pdfBlob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 // ─────────────────────────────────────────────

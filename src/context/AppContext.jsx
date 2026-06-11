@@ -26,6 +26,8 @@ export function AppProvider({ children }) {
   const [leagueLogo, setLeagueLogo] = useState('/cricauction-logo.jpeg')
   const [activeAuction, setActiveAuction] = useState(null)
   const [auctions, setAuctions] = useState([])
+  const [joinedAuctionIds, setJoinedAuctionIds] = useState(new Set()) // IDs user has legitimately joined
+  const [membersLoaded, setMembersLoaded] = useState(false) // true once auction_members query finishes
   const [loading, setLoading] = useState(true)
   const [dbReady, setDbReady] = useState(true)
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
@@ -58,10 +60,12 @@ export function AppProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Load the auction list whenever the user changes
+  // Load the auction list + membership whenever the user changes
   useEffect(() => {
     if (!user) return
     let mounted = true
+
+    // Load all auctions the user can see
     supabase
       .from('auctions')
       .select('*')
@@ -69,6 +73,19 @@ export function AppProvider({ children }) {
       .then(({ data }) => {
         if (mounted && data) setAuctions(data)
       })
+
+    // Load which auctions this user has joined as a member
+    supabase
+      .from('auction_members')
+      .select('auction_id')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (mounted && data) {
+          setJoinedAuctionIds(new Set(data.map(m => m.auction_id)))
+        }
+        if (mounted) setMembersLoaded(true)
+      })
+
     return () => { mounted = false }
   }, [user])
 
@@ -105,18 +122,29 @@ export function AppProvider({ children }) {
     if (storedLogo) setLeagueLogo(storedLogo)
 
     // Restore the active auction for this specific user from localStorage
+    // BUT only allow it if the user is still a legitimate member or host
     if (currentUser) {
       const storedId = getStoredAuctionId(currentUser.id)
       if (storedId) {
-        const { data: auction, error: auctionError } = await supabase
-          .from('auctions')
-          .select('*')
-          .eq('id', storedId)
-          .single()
+        // Fetch the auction + check membership in parallel
+        const [{ data: auction, error: auctionError }, { data: memberRow }] = await Promise.all([
+          supabase.from('auctions').select('*').eq('id', storedId).single(),
+          supabase.from('auction_members').select('auction_id').eq('auction_id', storedId).eq('user_id', currentUser.id).maybeSingle()
+        ])
+
         if (auction && !auctionError) {
-          setActiveAuction(auction)
+          const isHost   = auction.host_id === currentUser.id
+          const isCoHost = auction.co_hosts && auction.co_hosts.includes(currentUser.email)
+          const isMember = !!memberRow
+
+          if (isHost || isCoHost || isMember) {
+            setActiveAuction(auction)
+          } else {
+            // User no longer has access — clear the stale reference
+            setStoredAuctionId(currentUser.id, null)
+          }
         } else {
-          // Auction was deleted or inaccessible — clear the stale reference
+          // Auction deleted or inaccessible
           setStoredAuctionId(currentUser.id, null)
         }
       }
@@ -196,6 +224,9 @@ export function AppProvider({ children }) {
     setStoredAuctionId(user.id, data.id)
     setActiveAuction(data)
     setAuctions(prev => [data, ...prev])
+    // Host is automatically considered to have access (no auction_members row needed)
+    // but we still update joinedAuctionIds so the UI is consistent
+    setJoinedAuctionIds(prev => new Set([...prev, data.id]))
     return data
   }
 
@@ -208,13 +239,21 @@ export function AppProvider({ children }) {
 
     await loadAuctions()
 
+    // Re-fetch membership list so joinedAuctionIds is up to date
+    const { data: memberData } = await supabase
+      .from('auction_members')
+      .select('auction_id')
+      .eq('user_id', user.id)
+    if (memberData) setJoinedAuctionIds(new Set(memberData.map(m => m.auction_id)))
+
     const { data: auction, error: fetchError } = await supabase
       .from('auctions')
       .select('*')
       .eq('id', auctionId)
       .single()
     if (auction && !fetchError) {
-      await switchAuction(auction)
+      setActiveAuction(auction)
+      setStoredAuctionId(user.id, auction.id)
       return auction
     } else {
       throw new Error('Could not load the joined auction. Please refresh and try again.')
@@ -222,9 +261,18 @@ export function AppProvider({ children }) {
   }
 
   async function switchAuction(auction) {
-    setActiveAuction(auction)
-    // Store per-user — does NOT touch global settings table
-    if (user) setStoredAuctionId(user.id, auction.id)
+    if (!user) return
+
+    const isHost   = auction.host_id === user.id
+    const isCoHost = auction.co_hosts && auction.co_hosts.includes(user.email)
+
+    // Allow if user hosted it, or is already a confirmed member
+    if (isHost || isCoHost || joinedAuctionIds.has(auction.id)) {
+      setActiveAuction(auction)
+      setStoredAuctionId(user.id, auction.id)
+    } else {
+      throw new Error('JOIN_REQUIRED')
+    }
   }
 
   /** Clears activeAuction from state AND localStorage (used after deletion). */
@@ -256,6 +304,7 @@ export function AppProvider({ children }) {
       leagueLogo, updateLeagueLogo,
       updateBannerLogo,
       activeAuction, auctions,
+      joinedAuctionIds, membersLoaded,
       createAuction, joinAuction, switchAuction, resetAuction,
       clearActiveAuction,
       loadAuctions, loading, dbReady,

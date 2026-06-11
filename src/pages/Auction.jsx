@@ -444,72 +444,68 @@ export default function Auction() {
       </div>
 
       {/* Footer Sponsors & Ads */}
-      <div className="auction-footer" style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40,
-        padding: '40px 0 24px 0', borderTop: '1px solid var(--border)', flexWrap: 'wrap',
-        position: 'relative', flexShrink: 0, marginTop: 'auto'
-      }}>
-        {userRole === 'host' && (
-          <button onClick={() => setShowFooterModal(true)} style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Manage Footer Logos">
-            <Settings size={16} />
-          </button>
-        )}
-
-        {/* Title Sponsor */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Title Sponsor</div>
-          {settings?.title_logo ? (
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              {settings.title_logo.split(',').map((url, i) => (
-                <img key={i} src={url} alt={`Title Sponsor ${i+1}`} style={{ height: 40, objectFit: 'contain' }} />
-              ))}
-            </div>
-          ) : <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1 }}>[TITLE SPONSOR]</div>}
-        </div>
-
-        <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
-
-        {/* Co-Title Sponsor */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Co-Title Sponsor</div>
-          {settings?.co_title_logo ? (
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              {settings.co_title_logo.split(',').map((url, i) => (
-                <img key={i} src={url} alt={`Co-Title Sponsor ${i+1}`} style={{ height: 40, objectFit: 'contain' }} />
-              ))}
-            </div>
-          ) : <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: '#fff', letterSpacing: 1 }}>[CO-TITLE SPONSOR]</div>}
-        </div>
-
-        <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
-
-        {/* Digital Sponsor */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Digital Sponsor</div>
-          {settings?.bricx_logo ? (
-            <img src={settings.bricx_logo} alt="BricX" style={{ height: 60, objectFit: 'contain' }} />
-          ) : <img src="/bricx-logo.png" alt="BricX" style={{ height: 60, objectFit: 'contain' }} />}
-        </div>
-
-        {/* Custom Sponsors */}
-        {settings?.custom_sponsors && (() => {
-          let customs = []
+      {(() => {
+        // Only show sponsors that belong to THIS auction
+        const settingsBelongsHere = settings?.active_auction_id === activeAuction?.id
+        const titleLogo   = settingsBelongsHere ? settings?.title_logo    : null
+        const coTitleLogo = settingsBelongsHere ? settings?.co_title_logo  : null
+        const bricxLogo   = settingsBelongsHere ? settings?.bricx_logo     : null
+        let customs = []
+        if (settingsBelongsHere && settings?.custom_sponsors) {
           try { customs = JSON.parse(settings.custom_sponsors) } catch {}
-          return customs.map((sp, i) => (
-            <React.Fragment key={i}>
-              <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{sp.label}</div>
-                {sp.logo_url ? (
-                  <img src={sp.logo_url} alt={sp.label} style={{ height: 40, objectFit: 'contain' }} />
+        }
+
+        const sponsorCols = [
+          { label: 'Title Sponsor', logo: titleLogo },
+          { label: 'Co-Title Sponsor', logo: coTitleLogo },
+          { label: 'Digital Sponsor', logo: bricxLogo, fallback: '/bricx-logo.png' },
+          ...customs.map(sp => ({ label: sp.label, logo: sp.logo_url })),
+        ]
+
+        const colCount = sponsorCols.length
+
+        return (
+          <div className="auction-footer" style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${colCount}, 1fr)`,
+            padding: '32px 20px 20px',
+            borderTop: '1px solid var(--border)',
+            position: 'relative',
+            flexShrink: 0,
+            marginTop: 'auto',
+          }}>
+            {userRole === 'host' && (
+              <button onClick={() => setShowFooterModal(true)} style={{ position: 'absolute', right: 14, top: 12, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Manage Footer Logos">
+                <Settings size={16} />
+              </button>
+            )}
+            {sponsorCols.map((sp, i) => (
+              <div key={i} style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                padding: '0 16px',
+                borderRight: i < colCount - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>{sp.label}</div>
+                {sp.logo ? (
+                  sp.logo.includes(',') ? (
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {sp.logo.split(',').map((url, j) => (
+                        <img key={j} src={url.trim()} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
+                      ))}
+                    </div>
+                  ) : (
+                    <img src={sp.logo} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
+                  )
+                ) : sp.fallback ? (
+                  <img src={sp.fallback} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
                 ) : (
-                  <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1 }}>[{sp.label.toUpperCase()}]</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1, textAlign: 'center' }}>[{sp.label.toUpperCase()}]</div>
                 )}
               </div>
-            </React.Fragment>
-          ))
-        })()}
-      </div>
+            ))}
+          </div>
+        )
+      })()}
 
       {showFooterModal && (
         <FooterSettingsModal onClose={() => setShowFooterModal(false)} settings={settings} onSaved={() => { setShowFooterModal(false); loadData(); }} />

@@ -28,6 +28,26 @@ function AuthGuard({ children }) {
   return children
 }
 
+// Guards auction pages: user must have joined the active auction via code
+function AuctionGuard({ children }) {
+  const { activeAuction, userRole, joinedAuctionIds, loading, membersLoaded } = useApp()
+
+  // Still loading auth or membership data — show nothing to prevent flicker/false redirect
+  if (loading || !membersLoaded) return null
+
+  // No active auction — send them to dashboard to join/create one
+  if (!activeAuction) return <Navigate to="/dashboard" replace />
+
+  // They are the host/co-host — always allowed
+  if (userRole === 'host') return children
+
+  // They are a confirmed member — allowed
+  if (joinedAuctionIds.has(activeAuction.id)) return children
+
+  // Not a member — redirect to dashboard
+  return <Navigate to="/dashboard" replace state={{ requireCode: true }} />
+}
+
 function AppLayout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   return (
@@ -118,14 +138,14 @@ function AppInner() {
           <AuthGuard>
             <AppLayout>
               <Routes>
-                <Route path="/auction" element={<Auction />} />
-                <Route path="/teams" element={<Teams />} />
-                <Route path="/teams/:id" element={<TeamDetail />} />
-                <Route path="/rankings" element={<Rankings />} />
-                <Route path="/players" element={<Players />} />
-                <Route path="/players/:id" element={<PlayerDetail />} />
-                <Route path="/sponsors" element={<Sponsors />} />
-                <Route path="/host-tools" element={<HostTools />} />
+                <Route path="/auction" element={<AuctionGuard><Auction /></AuctionGuard>} />
+                <Route path="/teams" element={<AuctionGuard><Teams /></AuctionGuard>} />
+                <Route path="/teams/:id" element={<AuctionGuard><TeamDetail /></AuctionGuard>} />
+                <Route path="/rankings" element={<AuctionGuard><Rankings /></AuctionGuard>} />
+                <Route path="/players" element={<AuctionGuard><Players /></AuctionGuard>} />
+                <Route path="/players/:id" element={<AuctionGuard><PlayerDetail /></AuctionGuard>} />
+                <Route path="/sponsors" element={<AuctionGuard><Sponsors /></AuctionGuard>} />
+                <Route path="/host-tools" element={<AuctionGuard><HostTools /></AuctionGuard>} />
                 <Route path="/about-founder" element={<AboutFounder />} />
               </Routes>
             </AppLayout>

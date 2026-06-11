@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { showToast } from '../components/Toast'
 import { supabase, uploadFile } from '../lib/supabase'
-import { User, Plus, Ticket, Activity, Building2, X, Pencil, LogOut, Camera, Phone, ExternalLink, ChevronRight } from 'lucide-react'
-import ProfileMenu from '../components/ProfileMenu'
+import { User, Plus, Ticket, Activity, Building2, X, Pencil, LogOut, Camera, Phone, ExternalLink, ChevronRight, Bell } from 'lucide-react'
+import SideMenu from '../components/SideMenu'
 
 export default function Dashboard() {
-  const { user, logout, auctions, createAuction, joinAuction, switchAuction } = useApp()
+  const { user, logout, auctions, createAuction, joinAuction, switchAuction, joinedAuctionIds } = useApp()
   const navigate = useNavigate()
 
   const [showCreate, setShowCreate] = useState(false)
@@ -15,18 +15,23 @@ export default function Dashboard() {
   const [showJoin, setShowJoin] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
-  // Profile data for welcome message
+  // Profile data for welcome message and avatar
   const [profile, setProfile] = useState(null)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const hostedAuctions = auctions.filter(a => a.host_id === user?.id)
-  const joinedAuctions = auctions.filter(a => a.host_id !== user?.id)
+  const joinedAuctions = auctions.filter(a => a.host_id !== user?.id && joinedAuctionIds.has(a.id))
 
   useEffect(() => {
     if (user) {
       supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
         if (data) setProfile(data)
       })
+      supabase.from('notifications').select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('read', false)
+        .then(({ count }) => setUnreadCount(count || 0))
     }
   }, [user])
 
@@ -75,7 +80,7 @@ export default function Dashboard() {
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Player'
 
   return (
-    <div className="dashboard-page" style={{ position: 'relative', overflow: 'hidden', background: 'var(--blue)15' }}>
+    <div className="dashboard-page" style={{ position: 'relative', overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg-primary)', minHeight: '100vh' }}>
 
       {/* ── Top bar ── */}
       <div className="dashboard-topbar">
@@ -85,10 +90,60 @@ export default function Dashboard() {
             <span style={{ fontFamily: 'Rajdhani, sans-serif', fontWeight: 800, fontSize: 20, color: '#ffffff', letterSpacing: 1.5 }}>CricAuction</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <ProfileMenu />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {/* Notification Bell */}
+          <button
+            id="dashboard-notification-btn"
+            onClick={() => navigate('/profile', { state: { tab: 'Notifications' } })}
+            title="Notifications"
+            style={{
+              position: 'relative', background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%',
+              width: 38, height: 38, cursor: 'pointer', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: 2, right: 2,
+                background: 'var(--red)', color: '#fff',
+                borderRadius: '50%', width: 14, height: 14,
+                fontSize: 8, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1.5px solid var(--bg-elevated)',
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Profile icon — opens SideMenu */}
+          <button
+            id="dashboard-profile-btn"
+            onClick={() => setMenuOpen(true)}
+            title="Profile & Menu"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0,
+            }}
+          >
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%', overflow: 'hidden',
+              border: '2px solid var(--blue)', flexShrink: 0,
+              boxShadow: '0 0 10px rgba(74,158,255,0.3)',
+            }}>
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="me" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <div style={{ width: '100%', height: '100%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="var(--blue)" /></div>
+              }
+            </div>
+          </button>
         </div>
       </div>
+
+      {menuOpen && <SideMenu onClose={() => setMenuOpen(false)} />}
 
       <div className="dashboard-content">
         {/* Welcome */}

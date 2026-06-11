@@ -109,8 +109,8 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* Regular nav items */}
-        {navItems.map(({ to, label, Icon, exact }) => (
+        {/* Regular nav items — only show if an auction is active */}
+        {activeAuction && navItems.map(({ to, label, Icon, exact }) => (
           <NavLink
             key={to}
             to={to}
