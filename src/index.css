@@ -2255,39 +2255,45 @@ body {
   flex-direction: column;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  /* Mobile: let the whole grid scroll naturally */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
+/* Mobile: all columns flow at natural height, no compression */
 .bidding-teams-col, .bidding-player-col, .bidding-center-col {
   flex-shrink: 0;
   height: auto;
 }
 
-/* On mobile the teams col stretches to fill remaining space and scrolls internally */
 .bidding-teams-col {
   order: 2;
   border-bottom: 1px solid var(--border);
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* Mobile: natural height, no internal scroll */
 }
 
 .bidding-center-col {
   order: 3;
 }
 
-/* Hide the compact timer strip on desktop – the big timer in center col is shown instead */
+/* Compact timer strip — shown on mobile above team list */
 .bidding-timer-strip {
   display: flex;
 }
 
+/* Inner teams list — mobile: natural height (parent grid scrolls) */
+.bidding-teams-list {
+  padding: 12px 16px 16px;
+}
+
 @media (min-width: 900px) {
+  /* Desktop: fixed 3-col grid, each col handles its own overflow */
   .bidding-modal-grid {
     display: grid;
     grid-template-columns: 30% 40% 30%;
-    overflow: hidden;
+    overflow: hidden; /* desktop: columns handle their own scroll */
   }
   .bidding-teams-col, .bidding-player-col, .bidding-center-col {
     height: 100%;
@@ -2298,11 +2304,33 @@ body {
   }
   .bidding-teams-col {
     border-bottom: none;
-    flex: unset;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden; /* desktop: internal scroll */
   }
-  /* On desktop the big timer in center col is always visible — hide the compact strip */
+  /* Desktop: teams list scrolls internally */
+  .bidding-teams-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 16px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Desktop: big timer in center col is visible, hide compact strip */
   .bidding-timer-strip {
     display: none;
+  }
+}
+
+/* Desktop: restore fixed height so internal column scroll works */
+@media (min-width: 900px) {
+  .bidding-modal-container {
+    height: 85vh !important;
+    max-height: 800px !important;
+    overflow: hidden !important;
+  }
+  .bidding-modal-grid {
+    overflow: hidden !important;
   }
 }
 

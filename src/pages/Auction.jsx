@@ -968,13 +968,15 @@ function BiddingModal({
       zIndex: 1000
     }}>
       {/* Container */}
-      <div style={{
-        width: '95vw', maxWidth: 1200, height: '85vh', maxHeight: 800,
+      <div className="bidding-modal-container" style={{
+        width: '95vw', maxWidth: 1200,
         background: 'var(--bg-card)',
         borderRadius: 24, border: '1px solid var(--border)',
         boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
         position: 'relative',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden'
+        display: 'flex', flexDirection: 'column',
+        overflowX: 'hidden', overflowY: 'auto',
+        maxHeight: '92vh',
       }}>
         {/* Top Right Controls */}
         <div style={{ 
@@ -1133,7 +1135,7 @@ function BiddingModal({
             </div>
 
             {/* Scrollable teams list */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 16px 16px', WebkitOverflowScrolling: 'touch' }}>
+            <div className="bidding-teams-list">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {teams.map(team => {
                   const spent = getTeamSpent(team)
