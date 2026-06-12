@@ -162,10 +162,15 @@ export default function Auction() {
 
     if (!hasConfig) return purseLeft // legacy: no config, use full purse
 
-    // Count how many sold players belong to this team by category
-    const soldInTeam = players.filter(p => p.status === 'sold' && p.team_id === team.id)
+    // Use team.players (from the join query) to get which players are sold on THIS team.
+    // Then look up each player's category from the global `players` state by ID.
+    // This avoids relying on team_id being correctly populated in the players state.
+    const soldTeamPlayerIds = new Set(
+      (team.players || []).filter(p => p.status === 'sold').map(p => p.id)
+    )
     const soldByCategory = {}
-    for (const p of soldInTeam) {
+    for (const p of players) {
+      if (!soldTeamPlayerIds.has(p.id)) continue
       const cat = (p.category || 'gold').toLowerCase()
       soldByCategory[cat] = (soldByCategory[cat] || 0) + 1
     }
@@ -176,8 +181,8 @@ export default function Auction() {
       const alreadyFilled = soldByCategory[cat] || 0
       let stillNeeded = Math.max(0, required - alreadyFilled)
 
-      // If the current player belongs to this category, winning this auction fills one slot —
-      // don't reserve purse for a slot this player will fill
+      // If the current player belongs to this category, winning fills one slot —
+      // don't reserve purse for the slot this player will fill
       if (currentPlayer && (currentPlayer.category || 'Gold').toLowerCase() === cat && stillNeeded > 0) {
         stillNeeded -= 1
       }
@@ -188,6 +193,7 @@ export default function Auction() {
 
     return Math.max(0, purseLeft - reserved)
   }
+
 
   function handleSpinResult(playerCode) {
     const player = players.find(p => p.code === playerCode)
