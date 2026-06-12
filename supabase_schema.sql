@@ -66,6 +66,7 @@ create table if not exists auctions (
 alter table auctions add column if not exists host_id uuid references auth.users(id);
 alter table auctions add column if not exists join_code text unique;
 alter table auctions add column if not exists banner_url text;
+alter table auctions add column if not exists footer_sponsors text; -- JSON array: [{label, logo_url, logo_urls?}]
 
 -- Auction Members table
 create table if not exists auction_members (

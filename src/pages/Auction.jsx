@@ -128,14 +128,15 @@ export default function Auction() {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: teamsData }, { data: playersData }, { data: settingsData }] = await Promise.all([
+    const [{ data: teamsData }, { data: playersData }, { data: auctionData }] = await Promise.all([
       supabase.from('teams').select('*, players(id, status, sold_price), owners(name), category_config').eq('auction_id', activeAuction.id).order('created_at'),
       supabase.from('players').select('*').eq('auction_id', activeAuction.id).order('code'),
-      supabase.from('settings').select('*').single()
+      supabase.from('auctions').select('footer_sponsors').eq('id', activeAuction.id).single()
     ])
     setTeams(teamsData || [])
     setPlayers(playersData || [])
-    setSettings(settingsData || {})
+    // Store footer_sponsors from auction row directly
+    setSettings(auctionData || {})
     setLoading(false)
   }
 
@@ -152,7 +153,8 @@ export default function Auction() {
   }
 
   // Smart bid cap: purse left minus what must be reserved for remaining required players
-  function getTeamMaxBid(team) {
+  // currentPlayer: the player currently being auctioned (so we don't double-reserve their slot)
+  function getTeamMaxBid(team, currentPlayer) {
     const config = team.category_config || {}
     const hasConfig = Object.keys(config).length > 0
     const spent = getTeamSpent(team)
@@ -172,13 +174,18 @@ export default function Auction() {
     for (const cat of ['retained', 'platinum', 'diamond', 'gold']) {
       const required = parseInt(config[cat]?.count) || 0
       const alreadyFilled = soldByCategory[cat] || 0
-      const stillNeeded = Math.max(0, required - alreadyFilled)
+      let stillNeeded = Math.max(0, required - alreadyFilled)
+
+      // If the current player belongs to this category, winning this auction fills one slot —
+      // don't reserve purse for a slot this player will fill
+      if (currentPlayer && (currentPlayer.category || 'Gold').toLowerCase() === cat && stillNeeded > 0) {
+        stillNeeded -= 1
+      }
+
       const basePrice = parseFloat(config[cat]?.base_price) || 0
       reserved += stillNeeded * basePrice
     }
 
-    // The current player being bid on will fill one slot — subtract its base price from reserved
-    // (it's already reflected in currentBid, so we only guard the REMAINING slots)
     return Math.max(0, purseLeft - reserved)
   }
 
@@ -443,26 +450,16 @@ export default function Auction() {
         </div>
       </div>
 
-      {/* Footer Sponsors & Ads */}
+      {/* Footer Sponsors & Ads — per-auction, stored in auctions.footer_sponsors */}
       {(() => {
-        // Only show sponsors that belong to THIS auction
-        const settingsBelongsHere = settings?.active_auction_id === activeAuction?.id
-        const titleLogo   = settingsBelongsHere ? settings?.title_logo    : null
-        const coTitleLogo = settingsBelongsHere ? settings?.co_title_logo  : null
-        const bricxLogo   = settingsBelongsHere ? settings?.bricx_logo     : null
-        let customs = []
-        if (settingsBelongsHere && settings?.custom_sponsors) {
-          try { customs = JSON.parse(settings.custom_sponsors) } catch {}
-        }
+        // footer_sponsors is a JSON array of { label, logo_url, logo_urls? } stored per auction
+        let sponsorCols = []
+        try {
+          const raw = settings?.footer_sponsors
+          if (raw) sponsorCols = typeof raw === 'string' ? JSON.parse(raw) : raw
+        } catch {}
 
-        const sponsorCols = [
-          { label: 'Title Sponsor', logo: titleLogo },
-          { label: 'Co-Title Sponsor', logo: coTitleLogo },
-          { label: 'Digital Sponsor', logo: bricxLogo, fallback: '/bricx-logo.png' },
-          ...customs.map(sp => ({ label: sp.label, logo: sp.logo_url })),
-        ]
-
-        const colCount = sponsorCols.length
+        const colCount = Math.max(sponsorCols.length, 1)
 
         return (
           <div className="auction-footer" style={{
@@ -473,31 +470,32 @@ export default function Auction() {
             position: 'relative',
             flexShrink: 0,
             marginTop: 'auto',
+            minHeight: 90,
           }}>
             {userRole === 'host' && (
               <button onClick={() => setShowFooterModal(true)} style={{ position: 'absolute', right: 14, top: 12, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Manage Footer Logos">
                 <Settings size={16} />
               </button>
             )}
-            {sponsorCols.map((sp, i) => (
+            {sponsorCols.length === 0 ? (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                {userRole === 'host' ? 'Click ⚙ to add footer sponsors' : ''}
+              </div>
+            ) : sponsorCols.map((sp, i) => (
               <div key={i} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                 padding: '0 16px',
                 borderRight: i < colCount - 1 ? '1px solid var(--border)' : 'none',
               }}>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>{sp.label}</div>
-                {sp.logo ? (
-                  sp.logo.includes(',') ? (
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                      {sp.logo.split(',').map((url, j) => (
-                        <img key={j} src={url.trim()} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
-                      ))}
-                    </div>
-                  ) : (
-                    <img src={sp.logo} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
-                  )
-                ) : sp.fallback ? (
-                  <img src={sp.fallback} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
+                {sp.logo_urls && sp.logo_urls.length > 0 ? (
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {sp.logo_urls.map((url, j) => (
+                      <img key={j} src={url} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
+                    ))}
+                  </div>
+                ) : sp.logo_url ? (
+                  <img src={sp.logo_url} alt={sp.label} style={{ height: 40, objectFit: 'contain', maxWidth: 90 }} />
                 ) : (
                   <div style={{ fontSize: 12, fontWeight: 800, fontFamily: 'Rajdhani', color: 'var(--gold)', letterSpacing: 1, textAlign: 'center' }}>[{sp.label.toUpperCase()}]</div>
                 )}
@@ -508,7 +506,7 @@ export default function Auction() {
       })()}
 
       {showFooterModal && (
-        <FooterSettingsModal onClose={() => setShowFooterModal(false)} settings={settings} onSaved={() => { setShowFooterModal(false); loadData(); }} />
+        <FooterSettingsModal onClose={() => setShowFooterModal(false)} settings={settings} auctionId={activeAuction.id} onSaved={() => { setShowFooterModal(false); loadData(); }} />
       )}
 
 
@@ -521,7 +519,7 @@ export default function Auction() {
           onUnsold={handleUnsold}
           onClose={handleCloseBidding}
           getTeamSpent={getTeamSpent}
-          getTeamMaxBid={getTeamMaxBid}
+          getTeamMaxBid={(team) => getTeamMaxBid(team, selectedPlayer)}
           userRole={userRole}
           currentBid={currentBid}
           setCurrentBid={setCurrentBid}
@@ -906,14 +904,15 @@ function BiddingModal({
   const BID_INCREMENTS = [0, 0.10, 0.20, 0.30]
 
   function placeBid(team, increment) {
-    const currentNumericBid = Number(currentBid) || 0
+    const currentNumericBid = Math.round(Number(currentBid) * 100) / 100
     const newBid = Math.round((currentNumericBid + increment) * 100) / 100
-    const maxBid = getTeamMaxBid ? getTeamMaxBid(team) : (team.total_purse - getTeamSpent(team))
+    const maxBidRaw = getTeamMaxBid ? getTeamMaxBid(team) : (team.total_purse - getTeamSpent(team))
+    const maxBid = Math.round(maxBidRaw * 100) / 100
 
-    if (newBid > Math.round(maxBid * 100) / 100) {
+    if (newBid > maxBid) {
       const teamSpent = getTeamSpent(team)
       const purseLeft = team.total_purse - teamSpent
-      const reserved = purseLeft - maxBid
+      const reserved = Math.round((purseLeft - maxBid) * 100) / 100
       showToast(
         reserved > 0
           ? `${team.name} must keep ₹${reserved.toFixed(2)}L reserved for remaining squad slots!`
@@ -1057,7 +1056,7 @@ function BiddingModal({
           </div>
 
           {/* CENTER COLUMN: Bid Circle */}
-          <div className="bidding-center-col" style={{ display: 'flex', flexDirection: 'column', padding: '24px 20px', borderRight: '1px solid var(--border)', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="bidding-center-col" style={{ display: 'flex', flexDirection: 'column', padding: '24px 20px', borderRight: '1px solid var(--border)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               width: 220, height: 220, borderRadius: '50%',
@@ -1095,9 +1094,9 @@ function BiddingModal({
               )}
             </div>
 
-            {/* TIMER */}
-            <div style={{ marginTop: 32, textAlign: 'center' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4, fontWeight: 700 }}>Time Remaining</div>
+            {/* TIMER — center col, always visible */}
+            <div style={{ marginTop: 28, textAlign: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4, fontWeight: 700 }}>Time Remaining</div>
               <div style={{ 
                 fontSize: 48, fontWeight: 900, fontFamily: 'Rajdhani', 
                 color: timeLeft <= 5 ? 'var(--red)' : '#fff', 
@@ -1109,33 +1108,57 @@ function BiddingModal({
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Teams Options */}
-          <div className="bidding-teams-col" style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, padding: '72px 20px 24px 20px', overflowY: 'auto' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>Place Bids</div>
-              <div className="bidding-teams-grid" style={{ paddingRight: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* RIGHT COLUMN: Teams Options — fully scrollable */}
+          <div className="bidding-teams-col" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            {/* Sticky timer strip — visible on mobile where center col is hidden */}
+            <div className="bidding-timer-strip" style={{
+              flexShrink: 0,
+              padding: '10px 20px 6px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'var(--bg-card)',
+            }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700 }}>Place Bids</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>⏱</div>
+                <div style={{
+                  fontSize: 20, fontWeight: 900, fontFamily: 'Rajdhani',
+                  color: timeLeft <= 5 ? 'var(--red)' : 'var(--gold)',
+                  fontVariantNumeric: 'tabular-nums',
+                  textShadow: timeLeft <= 5 ? '0 0 12px rgba(220,53,69,0.6)' : '0 0 8px rgba(245,166,35,0.3)',
+                }}>{formatTime(timeLeft)}</div>
+              </div>
+            </div>
+
+            {/* Scrollable teams list */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 16px 16px', WebkitOverflowScrolling: 'touch' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {teams.map(team => {
                   const spent = getTeamSpent(team)
                   const purseLeft = team.total_purse - spent
-                  const maxBid = getTeamMaxBid ? getTeamMaxBid(team) : purseLeft
+                  const maxBidRaw = getTeamMaxBid ? getTeamMaxBid(team) : purseLeft
+                  const maxBid = Math.round(maxBidRaw * 100) / 100
                   const reserved = Math.round((purseLeft - maxBid) * 100) / 100
                   const playerCount = (team.players || []).filter(p => p.status === 'sold').length
                   const isFull = playerCount >= team.max_players
-                  const canBid = !isFull && maxBid >= currentBid
+                  // Use rounded comparison to avoid floating-point false negatives
+                  const canBid = !isFull && maxBid >= Math.round(Number(currentBid) * 100) / 100
 
                   return (
                     <div key={team.id} style={{
                       background: selectedTeam?.id === team.id ? `${team.color}15` : 'rgba(255,255,255,0.02)',
                       border: selectedTeam?.id === team.id ? `2px solid ${team.color}88` : '1px solid var(--border)',
                       borderRadius: 12, padding: '10px', display: 'flex', flexDirection: 'column', gap: 6,
-                      transition: 'all 0.2s', marginBottom: 12,
+                      transition: 'all 0.2s', flexShrink: 0,
                       cursor: userRole === 'host' && canBid ? 'pointer' : 'default'
                     }} onClick={() => {
                       if (userRole === 'host' && canBid) placeBid(team, 0)
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                           <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color }} />
+                           <div style={{ width: 12, height: 12, borderRadius: '50%', background: team.color, flexShrink: 0 }} />
                            <span style={{ fontWeight: 800, fontSize: 13 }}>{team.name}</span>
                          </div>
                          <div style={{ textAlign: 'right' }}>
@@ -1251,80 +1274,40 @@ function Firecrackers() {
   )
 }
 
-function FooterSettingsModal({ onClose, settings, onSaved }) {
+function FooterSettingsModal({ onClose, settings, onSaved, auctionId }) {
   const [loading, setLoading] = useState(false)
-  const [files, setFiles] = useState({ title_logo: null, co_title_logo: null, bricx_logo: null })
-  // Custom sponsor state
-  const [customLabel, setCustomLabel] = useState('')
-  const [customFile, setCustomFile] = useState(null)
+  const [label, setLabel] = useState('')
+  const [file, setFile] = useState(null)
+  const [filePreview, setFilePreview] = useState(null)
+  const fileRef = React.useRef()
 
-  // Parse existing custom sponsors
-  let customSponsors = []
-  try { customSponsors = settings?.custom_sponsors ? JSON.parse(settings.custom_sponsors) : [] } catch {}
+  // Parse existing per-auction footer sponsors
+  let footerSponsors = []
+  try {
+    const raw = settings?.footer_sponsors
+    if (raw) footerSponsors = typeof raw === 'string' ? JSON.parse(raw) : raw
+  } catch {}
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setLoading(true)
-    try {
-      const updates = {}
-      
-      if (files.bricx_logo) {
-        updates.bricx_logo = await uploadFile(files.bricx_logo, 'sponsors')
-      }
-      
-      for (const key of ['title_logo', 'co_title_logo']) {
-        if (files[key]) {
-          const uploadedUrl = await uploadFile(files[key], 'sponsors')
-          const existing = settings?.[key] ? settings[key].split(',') : []
-          updates[key] = [...existing, uploadedUrl].join(',')
-        }
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        const { error } = await supabase.from('settings').update(updates).eq('id', 1)
-        if (error) throw error
-        showToast('Logos updated', 'success')
-      }
-      onSaved()
-    } catch(err) {
-      showToast('Error: ' + err.message, 'error')
-    } finally {
-      setLoading(false)
-    }
+  async function saveSponsors(updated) {
+    const { error } = await supabase
+      .from('auctions')
+      .update({ footer_sponsors: JSON.stringify(updated) })
+      .eq('id', auctionId)
+    if (error) throw error
   }
 
-  async function handleRemove(key, urlToRemove) {
-    try {
-      setLoading(true)
-      if (key === 'bricx_logo') {
-        await supabase.from('settings').update({ [key]: null }).eq('id', 1);
-      } else {
-        const existing = settings?.[key] ? settings[key].split(',') : [];
-        const updated = existing.filter(u => u !== urlToRemove);
-        await supabase.from('settings').update({ [key]: updated.length > 0 ? updated.join(',') : null }).eq('id', 1);
-      }
-      onSaved();
-    } catch (err) {
-      showToast('Error removing logo: ' + err.message, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleAddCustomSponsor() {
-    if (!customLabel.trim()) return showToast('Please enter a sponsor label', 'error')
+  async function handleAdd() {
+    if (!label.trim()) return showToast('Please enter a sponsor label', 'error')
     setLoading(true)
     try {
       let logo_url = null
-      if (customFile) {
-        logo_url = await uploadFile(customFile, 'sponsors')
-      }
-      const updated = [...customSponsors, { label: customLabel.trim(), logo_url }]
-      const { error } = await supabase.from('settings').update({ custom_sponsors: JSON.stringify(updated) }).eq('id', 1)
-      if (error) throw error
+      if (file) logo_url = await uploadFile(file, 'sponsors')
+      const updated = [...footerSponsors, { label: label.trim(), logo_url }]
+      await saveSponsors(updated)
       showToast('Sponsor added!', 'success')
-      setCustomLabel('')
-      setCustomFile(null)
+      setLabel('')
+      setFile(null)
+      setFilePreview(null)
       onSaved()
     } catch(err) {
       showToast('Error: ' + err.message, 'error')
@@ -1333,12 +1316,58 @@ function FooterSettingsModal({ onClose, settings, onSaved }) {
     }
   }
 
-  async function handleRemoveCustomSponsor(idx) {
+  async function handleAddLogo(idx) {
+    // Add another logo URL to an existing sponsor slot
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = async (e) => {
+      const f = e.target.files[0]
+      if (!f) return
+      setLoading(true)
+      try {
+        const url = await uploadFile(f, 'sponsors')
+        const updated = footerSponsors.map((sp, i) => {
+          if (i !== idx) return sp
+          const existing = sp.logo_urls || (sp.logo_url ? [sp.logo_url] : [])
+          return { ...sp, logo_urls: [...existing, url], logo_url: null }
+        })
+        await saveSponsors(updated)
+        showToast('Logo added!', 'success')
+        onSaved()
+      } catch(err) {
+        showToast('Error: ' + err.message, 'error')
+      } finally {
+        setLoading(false)
+      }
+    }
+    input.click()
+  }
+
+  async function handleRemoveLogo(sponsorIdx, logoUrl) {
     setLoading(true)
     try {
-      const updated = customSponsors.filter((_, i) => i !== idx)
-      const { error } = await supabase.from('settings').update({ custom_sponsors: JSON.stringify(updated) }).eq('id', 1)
-      if (error) throw error
+      const updated = footerSponsors.map((sp, i) => {
+        if (i !== sponsorIdx) return sp
+        const urls = sp.logo_urls || (sp.logo_url ? [sp.logo_url] : [])
+        const remaining = urls.filter(u => u !== logoUrl)
+        return { ...sp, logo_urls: remaining.length > 0 ? remaining : [], logo_url: null }
+      })
+      await saveSponsors(updated)
+      onSaved()
+    } catch(err) {
+      showToast('Error: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRemoveSponsor(idx) {
+    setLoading(true)
+    try {
+      const updated = footerSponsors.filter((_, i) => i !== idx)
+      await saveSponsors(updated)
+      showToast('Sponsor removed', 'info')
       onSaved()
     } catch(err) {
       showToast('Error: ' + err.message, 'error')
@@ -1354,84 +1383,93 @@ function FooterSettingsModal({ onClose, settings, onSaved }) {
           <div className="modal-title">Footer Sponsors</div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {['title_logo', 'co_title_logo', 'bricx_logo'].map(key => {
-            const isMultiple = key !== 'bricx_logo';
-            const currentUrls = settings?.[key] ? (isMultiple ? settings[key].split(',') : [settings[key]]) : [];
-            const label = key === 'title_logo' ? 'Title Sponsor' : key === 'co_title_logo' ? 'Co-Title Sponsor' : 'Digital Sponsor'
-            
-            return (
-              <div key={key} className="form-group">
-                <label className="form-label">{label} {isMultiple ? '(Can add multiple)' : ''}</label>
-                <input type="file" accept="image/*" onChange={e => setFiles(f => ({ ...f, [key]: e.target.files[0] }))} className="form-input" style={{ padding: 8 }} />
-                
-                {currentUrls.length > 0 && (
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-                    {currentUrls.map((url, i) => (
-                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <img src={url} alt="current" style={{ height: 40, objectFit: 'contain' }} />
-                        <button type="button" disabled={loading} onClick={() => handleRemove(key, url)} style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, marginTop: 4 }}>Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving...' : 'Upload & Save'}</button>
-          </div>
-        </form>
 
-        {/* Custom Sponsors Section */}
-        <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>➕ Add Custom Sponsor Type</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Existing sponsors list */}
+        {footerSponsors.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Current Footer Sponsors</div>
+            {footerSponsors.map((sp, i) => {
+              const logos = sp.logo_urls || (sp.logo_url ? [sp.logo_url] : [])
+              return (
+                <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid var(--border)', padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: logos.length > 0 ? 10 : 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{sp.label}</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleAddLogo(i)}
+                        style={{ background: 'rgba(74,158,255,0.15)', border: '1px solid rgba(74,158,255,0.3)', color: 'var(--blue)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                      >+ Logo</button>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleRemoveSponsor(i)}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                      >✕ Remove</button>
+                    </div>
+                  </div>
+                  {logos.length > 0 && (
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {logos.map((url, j) => (
+                        <div key={j} style={{ position: 'relative', display: 'inline-block' }}>
+                          <img src={url} alt={sp.label} style={{ height: 40, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', padding: 4 }} />
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => handleRemoveLogo(i, url)}
+                            style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: 'var(--red)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Add new sponsor */}
+        <div style={{ borderTop: footerSponsors.length > 0 ? '1px solid var(--border)' : 'none', paddingTop: footerSponsors.length > 0 ? 16 : 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>➕ Add Sponsor Slot</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input
               type="text"
               className="form-input"
-              placeholder="Sponsor label (e.g. Turf Sponsor, Kit Sponsor)"
-              value={customLabel}
-              onChange={e => setCustomLabel(e.target.value)}
+              placeholder="Sponsor label (e.g. Title Sponsor, Kit Sponsor)"
+              value={label}
+              onChange={e => setLabel(e.target.value)}
             />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={e => setCustomFile(e.target.files[0])}
-              className="form-input"
-              style={{ padding: 8 }}
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={e => {
+                const f = e.target.files[0]
+                if (f) { setFile(f); setFilePreview(URL.createObjectURL(f)) }
+              }}
             />
             <button
               type="button"
-              className="btn btn-primary btn-sm"
-              disabled={loading || !customLabel.trim()}
-              onClick={handleAddCustomSponsor}
+              className="btn btn-ghost btn-sm"
+              onClick={() => fileRef.current?.click()}
+              style={{ justifyContent: 'flex-start' }}
             >
-              {loading ? 'Adding...' : 'Add Sponsor'}
+              {filePreview
+                ? <><img src={filePreview} alt="preview" style={{ height: 28, objectFit: 'contain', marginRight: 8, borderRadius: 4 }} />Change Logo</>
+                : '📷 Upload Logo (optional)'}
             </button>
-          </div>
-
-          {/* Existing custom sponsors */}
-          {customSponsors.length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Current Custom Sponsors</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {customSponsors.map((sp, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid var(--border)' }}>
-                    {sp.logo_url && <img src={sp.logo_url} alt={sp.label} style={{ height: 32, objectFit: 'contain' }} />}
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{sp.label}</span>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleRemoveCustomSponsor(i)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                    >Remove</button>
-                  </div>
-                ))}
-              </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={loading || !label.trim()}
+                onClick={handleAdd}
+                style={{ flex: 1 }}
+              >
+                {loading ? 'Saving...' : 'Add Sponsor'}
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -9,7 +9,8 @@ import {
   Plus, RefreshCw, Pencil, Image, ImagePlay, Crown,
   FileText, BarChart2, RotateCcw, Trash2, LogOut,
   Camera, Check, Circle, LayoutDashboard, User,
-  Trophy, Ticket, Video, Bell, ChevronRight, Lock
+  Trophy, Ticket, Video, Bell, ChevronRight, Lock,
+  Maximize, Minimize
 } from 'lucide-react'
 
 export default function SideMenu({ onClose }) {
@@ -21,6 +22,21 @@ export default function SideMenu({ onClose }) {
   const [auctionName, setAuctionName] = useState('')
   const [hostPhone, setHostPhone] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement)
+
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handleFsChange)
+    return () => document.removeEventListener('fullscreenchange', handleFsChange)
+  }, [])
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {})
+    } else {
+      document.exitFullscreen().catch(() => {})
+    }
+  }
 
   // Profile data
   const [profile, setProfile] = useState(null)
@@ -268,6 +284,10 @@ export default function SideMenu({ onClose }) {
           </div>
           <div className="menu-item" onClick={() => { onClose(); navigate('/about-founder') }} id="menu-about-founder">
             <User size={16} /> About Founder
+          </div>
+          <div className="menu-item" onClick={() => { toggleFullscreen() }} id="menu-fullscreen">
+            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
           </div>
           <div className="menu-item" onClick={async () => {
             await logout()
