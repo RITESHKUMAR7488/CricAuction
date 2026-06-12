@@ -777,13 +777,24 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
     const targetIdx = wheelPlayers.findIndex(p => p.code === targetCode)
     const validIdx = targetIdx >= 0 ? targetIdx : 0
 
-    const fullRotations = (8 + Math.random() * 4) * 2 * Math.PI
-    // Land on center of target segment
-    const targetAngle = -(validIdx * segAngle + segAngle / 2) + (Math.PI / 2 * 3)
-    const finalAngle = (Math.round(fullRotations / (2 * Math.PI)) * 2 * Math.PI) + targetAngle
+    const startAngle = angleRef.current
+
+    // Where the target segment center sits in absolute wheel coordinates
+    const targetAbsAngle = -(validIdx * segAngle + segAngle / 2) + (Math.PI / 2 * 3)
+
+    // Normalize both angles to [0, 2π] to find the shortest extra fraction needed
+    const normalizedStart  = ((startAngle   % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+    const normalizedTarget = ((targetAbsAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+
+    // Extra rotation beyond full turns to land precisely on the target
+    let extraRotation = normalizedTarget - normalizedStart
+    if (extraRotation < 0) extraRotation += 2 * Math.PI   // always go forward
+
+    // finalAngle is RELATIVE to startAngle — always exactly 10 full rotations + landing fraction
+    // This guarantees identical spin distance (and therefore identical speed) every single spin
+    const finalAngle = startAngle + 10 * 2 * Math.PI + extraRotation
 
     const duration = 5000
-    const startAngle = angleRef.current
     const startTime = performance.now()
 
     function easeOut(t) {
@@ -810,6 +821,7 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
 
     animRef.current = requestAnimationFrame(frame)
   }
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '0 20px' }}>
