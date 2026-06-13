@@ -96,7 +96,7 @@ export default function Sponsors() {
 
       {/* Header — always visible */}
       <div className="page-header" style={{ 
-        marginTop: 76, 
+        marginTop: 0, 
         marginBottom: 0,
         display: 'flex', 
         justifyContent: 'space-between', 
