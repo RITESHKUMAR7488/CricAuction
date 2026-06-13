@@ -470,7 +470,8 @@ export default function Auction() {
         return (
           <div className="auction-footer" style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${colCount}, 1fr)`,
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '24px 0',
             padding: '32px 20px 20px',
             borderTop: '1px solid var(--border)',
             position: 'relative',
@@ -491,7 +492,7 @@ export default function Auction() {
               <div key={i} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                 padding: '0 16px',
-                borderRight: i < colCount - 1 ? '1px solid var(--border)' : 'none',
+                borderRight: (i % 2 === 0 && i !== sponsorCols.length - 1) ? '1px solid var(--border)' : 'none',
               }}>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>{sp.label}</div>
                 {sp.logo_urls && sp.logo_urls.length > 0 ? (
