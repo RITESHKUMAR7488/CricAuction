@@ -132,38 +132,30 @@ export default function Sponsors() {
             </div>
           ) : (
             <>
-              {/* Infinite Looping Slider */}
+              {/* Infinite Looping Slider — fade crossfade (no overflow issues on mobile) */}
               <div style={{
-                position: 'relative',
-                width: '100%',
-                height: '100%',
-                overflow: 'hidden',
+                position: 'absolute',
+                inset: 0,
+                background: 'var(--bg-secondary)',
               }}>
-                <div style={{
-                  display: 'flex',
-                  width: '100%',
-                  height: '100%',
-                  transform: `translateX(-${currentIndex * 100}%)`,
-                  transition: 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}>
-                  {sponsors.map(sponsor => (
-                    <div key={sponsor.id} style={{
-                      minWidth: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'var(--bg-secondary)',
-                      flexShrink: 0,
-                    }}>
-                      {sponsor.logo_url ? (
-                        <img src={sponsor.logo_url} alt="Sponsor" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                      ) : (
-                        <div style={{ color: 'var(--text-muted)' }}>No Image</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                {sponsors.map((sponsor, i) => (
+                  <div key={sponsor.id} style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: i === currentIndex ? 1 : 0,
+                    transition: 'opacity 0.45s ease',
+                    pointerEvents: i === currentIndex ? 'auto' : 'none',
+                  }}>
+                    {sponsor.logo_url ? (
+                      <img src={sponsor.logo_url} alt="Sponsor" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)' }}>No Image</div>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {/* Nav Buttons */}
