@@ -101,7 +101,8 @@ export default function Sponsors() {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        padding: '0 24px 12px'
+        padding: '0 24px',
+        gap: 0,
       }}>
         <h1 className="page-title">{editMode ? 'MANAGE SPONSORS' : 'SPONSORS'}</h1>
         {userRole === 'host' && (
