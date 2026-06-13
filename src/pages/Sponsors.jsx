@@ -92,6 +92,7 @@ export default function Sponsors() {
       flexDirection: 'column', 
       height: '100%', 
       padding: 0,
+      paddingTop: 'calc(var(--header-height) + 10px)',
     }}>
 
       {/* Header — always visible */}
