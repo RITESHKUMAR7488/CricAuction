@@ -534,6 +534,7 @@ export default function Auction() {
           bidHistory={bidHistory}
           setBidHistory={setBidHistory}
           audienceSoldTrigger={audienceSoldTrigger}
+          liveSyncChannel={liveSyncChannel}
           onSoldAnimationStart={() => {
             if (liveSyncChannel && userRole === 'host') {
               liveSyncChannel.send({ type: 'broadcast', event: 'bidding_sold_animation', payload: {} })
@@ -853,7 +854,7 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
             height: 'auto',
             maxWidth: 540,
             filter: 'drop-shadow(0 0 28px rgba(74,158,255,0.1)) drop-shadow(0 0 14px rgba(245,166,35,0.1))', 
-            opacity: disabled ? 0.7 : 1,
+            opacity: 1,
             borderRadius: '50%'
           }}
           onClick={spin}
@@ -886,10 +887,11 @@ function SpinWheel({ players, spinning, setSpinning, onResult, disabled, liveSyn
 function BiddingModal({ 
   player, teams, onSold, onUnsold, onClose, getTeamSpent, getTeamMaxBid, userRole,
   currentBid, setCurrentBid, selectedTeam, setSelectedTeam, bidHistory, setBidHistory,
-  audienceSoldTrigger, onSoldAnimationStart
+  audienceSoldTrigger, onSoldAnimationStart, liveSyncChannel
 }) {
   const [showSoldAnimation, setShowSoldAnimation] = useState(false)
   const [timeLeft, setTimeLeft] = useState(30)
+  const teamsListRef = useRef(null)
 
   useEffect(() => {
     setTimeLeft(30)
@@ -919,6 +921,35 @@ function BiddingModal({
       setShowSoldAnimation(true)
     }
   }, [audienceSoldTrigger])
+
+  // Broadcast host's scroll position; mirror it on audience side
+  useEffect(() => {
+    if (userRole !== 'host') return
+    const el = teamsListRef.current
+    if (!el || !liveSyncChannel) return
+    function onScroll() {
+      liveSyncChannel.send({
+        type: 'broadcast',
+        event: 'teams_scroll',
+        payload: { scrollTop: el.scrollTop }
+      })
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [userRole, liveSyncChannel])
+
+  // Audience: receive and apply scroll
+  useEffect(() => {
+    if (userRole === 'host' || !liveSyncChannel) return
+    const handler = (msg) => {
+      if (teamsListRef.current) {
+        teamsListRef.current.scrollTop = msg.payload?.scrollTop ?? 0
+      }
+    }
+    liveSyncChannel.on('broadcast', { event: 'teams_scroll' }, handler)
+    // cleanup not strictly needed for broadcast listeners on the same channel
+  }, [userRole, liveSyncChannel])
+
   const BID_INCREMENTS = [0, 0.10, 0.20, 0.30]
 
   function placeBid(team, increment) {
@@ -1153,7 +1184,16 @@ function BiddingModal({
             </div>
 
             {/* Scrollable teams list */}
-            <div className="bidding-teams-list">
+            <div
+              ref={teamsListRef}
+              className="bidding-teams-list"
+              style={userRole !== 'host' ? {
+                overflowY: 'hidden',
+                pointerEvents: 'none',
+                touchAction: 'none',
+                userSelect: 'none'
+              } : {}}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {teams.map(team => {
                   const spent = getTeamSpent(team)

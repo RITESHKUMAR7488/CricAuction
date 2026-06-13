@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase, uploadFile } from '../lib/supabase'
 import { showToast } from '../components/Toast'
 import { useApp } from '../context/AppContext'
@@ -11,10 +11,24 @@ export default function Sponsors() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editMode, setEditMode] = useState(false)
-  const scrollRef = useRef(null)
+  const [currentIndex, setCurrentIndex] = useState(0)
 
   useEffect(() => {
-    if (activeAuction) loadSponsors()
+    if (!activeAuction) return
+    loadSponsors()
+
+    // Real-time: auto-refresh when host changes sponsor order
+    const channel = supabase
+      .channel(`sponsors-sync-${activeAuction.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'sponsors',
+        filter: `auction_id=eq.${activeAuction.id}`
+      }, () => loadSponsors())
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
   }, [activeAuction])
 
   async function loadSponsors() {
@@ -61,15 +75,11 @@ export default function Sponsors() {
   }
 
   function scrollNext() {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: window.innerWidth, behavior: 'smooth' })
-    }
+    setCurrentIndex(prev => (prev + 1) % Math.max(sponsors.length, 1))
   }
 
   function scrollPrev() {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: -window.innerWidth, behavior: 'smooth' })
-    }
+    setCurrentIndex(prev => (prev - 1 + Math.max(sponsors.length, 1)) % Math.max(sponsors.length, 1))
   }
 
   if (loading) {
@@ -122,52 +132,53 @@ export default function Sponsors() {
             </div>
           ) : (
             <>
-              {/* Fullscreen Slider */}
-              <div 
-                ref={scrollRef}
-                style={{ 
-                  display: 'flex', 
-                  overflowX: 'auto', 
-                  scrollSnapType: 'x mandatory',
+              {/* Infinite Looping Slider */}
+              <div style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  width: '100%',
                   height: '100%',
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none'
-                }}
-              >
-                {sponsors.map(sponsor => (
-                  <div key={sponsor.id} style={{ 
-                    minWidth: '100%', 
-                    height: '100%', 
-                    scrollSnapAlign: 'start', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    background: 'var(--bg-secondary)'
-                  }}>
-                    {sponsor.logo_url ? (
-                      <img src={sponsor.logo_url} alt="Sponsor" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <div style={{ color: 'var(--text-muted)' }}>No Image</div>
-                    )}
-                  </div>
-                ))}
+                  transform: `translateX(-${currentIndex * 100}%)`,
+                  transition: 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}>
+                  {sponsors.map(sponsor => (
+                    <div key={sponsor.id} style={{
+                      minWidth: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'var(--bg-secondary)',
+                      flexShrink: 0,
+                    }}>
+                      {sponsor.logo_url ? (
+                        <img src={sponsor.logo_url} alt="Sponsor" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      ) : (
+                        <div style={{ color: 'var(--text-muted)' }}>No Image</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
+
               {/* Nav Buttons */}
-              <button 
-                onClick={scrollPrev} 
+              <button
+                onClick={scrollPrev}
                 style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}
               >
                 ←
               </button>
-              <button 
-                onClick={scrollNext} 
+              <button
+                onClick={scrollNext}
                 style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}
               >
                 →
               </button>
-              <style>{`
-                ::-webkit-scrollbar { display: none; }
-              `}</style>
             </>
           )}
         </div>
