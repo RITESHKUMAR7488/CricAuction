@@ -92,54 +92,37 @@ export default function Sponsors() {
       flexDirection: 'column', 
       height: '100%', 
       padding: 0,
-      paddingTop: editMode ? undefined : 'var(--header-height)',
     }}>
 
-      {/* Header — only shown in edit mode */}
-      {editMode && (
-        <div className="page-header" style={{ 
-          marginTop: 76, 
-          marginBottom: 24, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          padding: '0 24px' 
-        }}>
-          <h1 className="page-title">MANAGE SPONSORS</h1>
-          {userRole === 'host' && (
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setEditMode(false)}
-              >
-                VIEW PRESENTATION
-              </button>
+      {/* Header — always visible */}
+      <div className="page-header" style={{ 
+        marginTop: 76, 
+        marginBottom: 0,
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        padding: '0 24px 12px'
+      }}>
+        <h1 className="page-title">{editMode ? 'MANAGE SPONSORS' : 'SPONSORS'}</h1>
+        {userRole === 'host' && (
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              className={`btn btn-sm ${editMode ? 'btn-ghost' : 'btn-primary'}`}
+              onClick={() => setEditMode(!editMode)}
+            >
+              {editMode ? 'VIEW PRESENTATION' : 'EDIT SPONSORS'}
+            </button>
+            {editMode && (
               <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} id="add-sponsor-btn" style={{ background: 'var(--blue)', color: 'white' }}>
                 + ADD PICTURE
               </button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
       {!editMode ? (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {/* Floating edit button for host in view mode */}
-          {userRole === 'host' && (
-            <button
-              onClick={() => setEditMode(true)}
-              style={{
-                position: 'absolute', top: 12, right: 12, zIndex: 20,
-                background: 'rgba(74,158,255,0.85)', backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(74,158,255,0.5)', color: '#fff',
-                borderRadius: 8, padding: '6px 14px', fontSize: 12,
-                fontWeight: 700, letterSpacing: 0.5, cursor: 'pointer',
-                textTransform: 'uppercase',
-              }}
-            >
-              ✏ Edit Sponsors
-            </button>
-          )}
           {sponsors.length === 0 ? (
             <div className="empty-state" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div className="empty-state-icon">
